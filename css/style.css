@@ -415,12 +415,14 @@ body.buttonsOnly.ridersCount1 .topgrid > div:first-child,
 body.buttonsOnly.ridersCount2 .topgrid > div:first-child,
 body.buttonsOnly.ridersCount3 .topgrid > div:first-child,
 body.buttonsOnly.ridersCount4 .topgrid > div:first-child {
+  /* Provide a flexible container for the header, controls and riders list.
+     We avoid enforcing a minimum height here; the flexbox rules defined
+     later will allow the element to grow to fill available space within
+     the viewport. */
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  /* ensure the column occupies full viewport height; padding on .wrap
-     accounts for small margins */
-  min-height: 100vh;
+  min-height: 0;
 }
 
 /* For up to four riders stack cards vertically and allow them to grow
@@ -440,8 +442,19 @@ body.buttonsOnly.ridersCount1 .btns .riderBtn,
 body.buttonsOnly.ridersCount2 .btns .riderBtn,
 body.buttonsOnly.ridersCount3 .btns .riderBtn,
 body.buttonsOnly.ridersCount4 .btns .riderBtn {
-  flex: 1 1 auto;
+  /* Use zero flex‑basis so that cards share space equally.  The
+     intrinsic content size is ignored and each card starts from
+     zero height. */
+  flex: 1 1 0%;
   /* Remove minimum height on the enlarged cards so they can expand */
+  min-height: 0;
+}
+
+/* Single rider case.  With one card there is nothing to share with,
+   but using a zero flex basis still causes it to grow to fill all
+   available space. */
+body.buttonsOnly.ridersCount1 .btns .riderBtn {
+  flex: 1 1 0%;
   min-height: 0;
 }
 
@@ -636,3 +649,158 @@ body.ridersCount4 .riderBtn { --scale: 1.3; }
       opacity: .75;
       letter-spacing: .5px;
     }
+
+/*
+ * Fixed-height training (Solo botones) mode for one to four riders.
+ *
+ * In earlier releases the rider cards were given a minimum height and the
+ * container relied on the browser's viewport unit `vh` to fill the screen.
+ * On many mobile browsers the address bar and navigation UI cause `100vh`
+ * to exceed the actual visible area, resulting in a small amount of
+ * vertical scrolling even with few riders.  To ensure that the cards
+ * always fit within the real viewport height, use `dvh` units (dynamic
+ * viewport height) and explicitly set the page and wrapper to consume the
+ * full height.  We also hide overflow on the `body` to prevent the
+ * document from scrolling.  The `.btns` container and its children are
+ * turned into flex items so that each rider card expands equally to
+ * occupy the available space.  Padding, margins and gaps are reduced to
+ * maximise vertical real estate without compromising touch target size.
+ */
+body.buttonsOnly.ridersCount1,
+body.buttonsOnly.ridersCount2,
+body.buttonsOnly.ridersCount3,
+body.buttonsOnly.ridersCount4 {
+  /* Set a fallback height using traditional viewport units and override
+     with dynamic viewport units where supported.  This ensures the
+     page consumes the full visible height on browsers that do not
+     recognise 100dvh. */
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: hidden;
+}
+
+/* Repeat the same rule for the single‑rider case.  Keeping it
+   separate improves readability. */
+body.buttonsOnly.ridersCount1 {
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: hidden;
+}
+
+body.buttonsOnly.ridersCount1 .wrap,
+body.buttonsOnly.ridersCount2 .wrap,
+body.buttonsOnly.ridersCount3 .wrap,
+body.buttonsOnly.ridersCount4 .wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* Remove vertical padding to give more room for rider cards */
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+body.buttonsOnly.ridersCount1 .wrap > .card,
+body.buttonsOnly.ridersCount2 .wrap > .card,
+body.buttonsOnly.ridersCount3 .wrap > .card,
+body.buttonsOnly.ridersCount4 .wrap > .card {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  /* Allow card to shrink or grow within the available space */
+  min-height: 0;
+}
+
+body.buttonsOnly.ridersCount1 .topgrid > div:first-child,
+body.buttonsOnly.ridersCount2 .topgrid > div:first-child,
+body.buttonsOnly.ridersCount3 .topgrid > div:first-child,
+body.buttonsOnly.ridersCount4 .topgrid > div:first-child {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  /* Eliminate extra gaps between the time, controls and rider list */
+  gap: 8px;
+}
+
+/* In Solo botones mode the entire topgrid should stretch vertically.
+   By default `.topgrid` uses CSS grid and rows sized to their content,
+   which prevents the rider list from expanding to fill the card when
+   there are few riders.  Converting the grid into a flex column
+   ensures the first child (time + controls + riders) can grow to
+   occupy all remaining space. */
+body.buttonsOnly.ridersCount1 .topgrid,
+body.buttonsOnly.ridersCount2 .topgrid,
+body.buttonsOnly.ridersCount3 .topgrid,
+body.buttonsOnly.ridersCount4 .topgrid {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+body.buttonsOnly.ridersCount1 .controlsTop,
+body.buttonsOnly.ridersCount2 .controlsTop,
+body.buttonsOnly.ridersCount3 .controlsTop,
+body.buttonsOnly.ridersCount4 .controlsTop {
+  margin-bottom: 6px;
+}
+
+body.buttonsOnly.ridersCount1 .btns,
+body.buttonsOnly.ridersCount2 .btns,
+body.buttonsOnly.ridersCount3 .btns,
+body.buttonsOnly.ridersCount4 .btns {
+  /* Use a single‑column CSS grid with auto rows equal to 1fr.  This
+     guarantees that each rider card occupies an equal portion of the
+     available vertical space.  We preserve the flex properties on the
+     parent so the grid itself expands to fill its container. */
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-auto-rows: 1fr;
+  /* Reduce gap slightly in training mode */
+  gap: 8px;
+  margin-top: 0;
+}
+
+body.buttonsOnly.ridersCount1 .btns .riderBtn,
+body.buttonsOnly.ridersCount2 .btns .riderBtn,
+body.buttonsOnly.ridersCount3 .btns .riderBtn,
+body.buttonsOnly.ridersCount4 .btns .riderBtn {
+  /* Make rider cards truly flexible: the zero flex‑basis causes each
+     card to start at zero height and then share the available space
+     equally.  Without this the cards try to maintain their intrinsic
+     height (based on content), leaving unused vertical space when
+     there are few riders. */
+  flex: 1 1 0%;
+  /* Allow cards to shrink below their default min height so they can fit */
+  min-height: 0;
+  /* Reduce internal padding in training mode for better fit */
+  padding-top: calc(10px * var(--scale));
+  padding-bottom: calc(10px * var(--scale));
+
+  /* Fill the grid row completely.  With grid-auto-rows:1fr on the
+     container, this ensures the card expands to occupy the allotted
+     space instead of hugging its content. */
+  height: 100%;
+}
+
+/* Explicitly repeat the rule for the single‑rider case.  A single card
+   still needs a zero basis so it expands to fill all available space. */
+body.buttonsOnly.ridersCount1 .btns .riderBtn {
+  flex: 1 1 0%;
+  min-height: 0;
+  padding-top: calc(10px * var(--scale));
+  padding-bottom: calc(10px * var(--scale));
+}
+
+/* Hide the version indicator in training mode on small rider counts; it will
+   appear at the bottom of the viewport and could create scroll. */
+body.buttonsOnly.ridersCount1 .versionIndicator,
+body.buttonsOnly.ridersCount2 .versionIndicator,
+body.buttonsOnly.ridersCount3 .versionIndicator,
+body.buttonsOnly.ridersCount4 .versionIndicator {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  margin-top: 0;
+}
