@@ -1,0 +1,538 @@
+* {
+      box-sizing: border-box
+    }
+
+    body {
+      margin: 0;
+      background: #0b0f17;
+      color: #e8eefc;
+      font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial, sans-serif
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: auto;
+      padding: 14px
+    }
+
+    .card,
+    .cfg,
+    .tableCard,
+    .history {
+      background: #121a2a;
+      border: 1px solid #1f2a44;
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 10px 30px #0005
+    }
+
+    h1 {
+      font-size: 17px;
+      margin: 0 0 10px;
+      font-weight: 950
+    }
+
+    .time {
+      font-variant-numeric: tabular-nums;
+      font-size: 56px;
+      line-height: 1;
+      margin: 8px 0;
+      font-weight: 1000
+    }
+
+    .sub {
+      opacity: .8;
+      margin-bottom: 10px
+    }
+
+    .topgrid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px
+    }
+
+    @media(min-width:980px) {
+      .topgrid {
+        grid-template-columns: 1.2fr .8fr
+      }
+    }
+
+    button {
+      padding: 14px 12px;
+      border-radius: 14px;
+      border: 1px solid #26365c;
+      background: #1a2642;
+      color: #e8eefc;
+      font-size: 16px;
+      font-weight: 850;
+      cursor: pointer;
+      touch-action: manipulation
+    }
+
+    button:active {
+      transform: scale(.99)
+    }
+
+    button.primary {
+      background: #2a4cff;
+      border-color: #2a4cff
+    }
+
+    button.warn {
+      background: #2b1a1a;
+      border-color: #5a2a2a;
+      color: #ffd6d6
+    }
+
+    button.ok {
+      background: #17301f;
+      border-color: #2a5a3a;
+      color: #d8ffe7
+    }
+
+    button.finish {
+      background: #21451f;
+      border-color: #44aa44;
+      color: #d8ffe7
+    }
+
+    button:disabled {
+      opacity: .45
+    }
+
+    .controlsTop {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px
+    }
+
+    .btns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px
+    }
+
+    @media(min-width:760px) {
+      .btns {
+        grid-template-columns: 1fr 1fr 1fr 1fr
+      }
+
+      .bottomActions {
+        grid-template-columns: repeat(4, 1fr)
+      }
+    }
+
+    .bottomActions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px
+    }
+
+    .riderBtn {
+      display: grid;
+      gap: 8px;
+      background: #0e1526;
+      border: 2px solid #1f2a44;
+      border-radius: 14px;
+      padding: 12px;
+      text-align: left;
+      min-height: 126px
+    }
+
+    .riderBtn .name {
+      font-weight: 950;
+      font-size: 20px;
+      line-height: 1.05
+    }
+
+    .riderBtn .line1 {
+      font-size: 14px;
+      opacity: .92
+    }
+
+    .riderBtn .line2 {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 14px;
+      font-variant-numeric: tabular-nums
+    }
+
+    .riderBtn .label {
+      opacity: .7;
+      font-weight: 800
+    }
+
+    .riderBtn .val {
+      font-weight: 950
+    }
+
+    .riderBtn.next {
+      outline: 4px solid #ffffff1f;
+      box-shadow: 0 0 22px #ffffff22
+    }
+
+    .riderBtn.confirm {
+      background: #13b65d !important;
+      border-color: #8cffb6 !important;
+      color: #03140a !important;
+      box-shadow: 0 0 0 4px #13b65d55 !important
+    }
+
+    .cfg h2 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      opacity: .9
+    }
+
+    .grid3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px
+    }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px
+    }
+
+    @media(max-width:650px) {
+
+      .grid3,
+      .grid2 {
+        grid-template-columns: 1fr
+      }
+    }
+
+    label {
+      font-size: 12px;
+      opacity: .82;
+      display: block;
+      margin-bottom: 4px
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      background: #0e1526;
+      border: 1px solid #26365c;
+      color: #e8eefc;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 14px
+    }
+
+    textarea {
+      min-height: 54px;
+      resize: vertical
+    }
+
+    .list {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px
+    }
+
+    .rline {
+      display: grid;
+      grid-template-columns: 1fr 44px 44px 90px;
+      gap: 8px;
+      align-items: center
+    }
+
+    .nameWrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0
+    }
+
+    .colorDot {
+      width: 18px;
+      height: 18px;
+      border-radius: 99px;
+      border: 2px solid #26365c;
+      flex: 0 0 auto
+    }
+
+    .rline input {
+      font-size: 16px
+    }
+
+    .rline button {
+      padding: 10px 0;
+      font-size: 14px
+    }
+
+    .tables {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 12px
+    }
+
+    @media(min-width:980px) {
+      .tables {
+        grid-template-columns: 1fr 1fr
+      }
+    }
+
+    .scroll {
+      max-height: 360px;
+      overflow: auto;
+      border-radius: 10px
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-variant-numeric: tabular-nums
+    }
+
+    th,
+    td {
+      padding: 8px;
+      border-bottom: 1px solid #1f2a44;
+      font-size: 13px
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #0e1526;
+      text-align: left
+    }
+
+    .foot {
+      margin-top: 10px;
+      font-size: 12px;
+      opacity: .65
+    }
+
+    body.buttonsOnly .cfg,
+    body.buttonsOnly .tables,
+    body.buttonsOnly .foot {
+      display: none
+    }
+
+    body.buttonsOnly .wrap {
+      max-width: 1200px
+    }
+
+    body.buttonsOnly .time {
+      font-size: 58px
+    }
+
+    body.buttonsOnly .riderBtn {
+      padding: 16px
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 14px;
+      transform: translateX(-50%);
+      background: #0e1526ee;
+      border: 1px solid #1f2a44;
+      padding: 10px 12px;
+      border-radius: 99px;
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: .2s;
+      z-index: 10000
+    }
+
+    .toast.show {
+      opacity: 1
+    }
+
+/*
+  Version indicator shown at the bottom of the application.  It maintains a
+  subtle appearance similar to the existing foot and does not interfere with
+  other elements.  Each line is stacked vertically for clarity.
+*/
+.versionIndicator {
+  margin-top: 12px;
+  font-size: 12px;
+  opacity: .65;
+  text-align: center;
+  line-height: 1.2;
+}
+
+    .launchOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: #05080d;
+      color: #e8eefc;
+      padding: 24px
+    }
+
+    .launchOverlay.show {
+      display: flex
+    }
+
+    .launchOverlay.green {
+      background: #13b65d;
+      color: #03140a
+    }
+
+    .launchTitle {
+      font-size: min(12vw, 92px);
+      font-weight: 1000;
+      line-height: 1
+    }
+
+    .launchCount {
+      font-size: min(34vw, 260px);
+      font-weight: 1000;
+      line-height: .9;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -8px;
+      margin: 18px 0
+    }
+
+    .launchPilot {
+      font-size: min(15vw, 120px);
+      font-weight: 1000;
+      line-height: 1
+    }
+
+    .launchHint {
+      font-size: min(5vw, 30px);
+      opacity: .78;
+      font-weight: 850;
+      margin-top: 16px
+    }
+
+    .history {
+      margin-top: 12px
+    }
+
+    .historyItem {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      border-bottom: 1px solid #1f2a44;
+      padding: 8px 0;
+      align-items: center
+    }
+
+    .historyItem:last-child {
+      border-bottom: 0
+    }
+
+    .historyItem small {
+      opacity: .7
+    }
+
+    .splashScreen {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20000;
+      opacity: 1;
+      transition: opacity .4s ease;
+      overflow: hidden
+    }
+
+    .splashScreen img {
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+      object-position: center center;
+      display: block
+    }
+
+    .splashScreen.hide {
+      opacity: 0;
+      pointer-events: none
+    }
+
+    .splashScreen.gone {
+      display: none
+    }
+
+
+    .ignitionScreen {
+      position: fixed;
+      inset: 0;
+      z-index: 30000;
+      background: radial-gradient(circle at center, #19b85d 0%, #0b8f3f 52%, #056328 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      opacity: 1;
+      transition: opacity .35s ease;
+    }
+
+    .ignitionScreen.hide {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .ignitionScreen.gone {
+      display: none;
+    }
+
+    .ignitionBox {
+      display: grid;
+      gap: 18px;
+      justify-items: center;
+      align-items: center;
+      padding: 28px;
+    }
+
+    .ignitionButton {
+      width: min(42vw, 170px);
+      height: min(42vw, 170px);
+      border-radius: 999px;
+      border: 7px solid #ffb3b3;
+      background: radial-gradient(circle at 35% 30%, #ff5b5b 0%, #d80000 45%, #7d0000 100%);
+      box-shadow: 0 18px 40px #0007, inset 0 8px 14px #ffffff44, inset 0 -10px 20px #0005;
+      color: white;
+      font-size: min(9vw, 36px);
+      font-weight: 1000;
+      letter-spacing: 1px;
+      text-shadow: 0 2px 5px #0009;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-transform: uppercase;
+    }
+
+    .ignitionButton:active {
+      transform: scale(.96);
+      box-shadow: 0 10px 24px #0008, inset 0 5px 10px #0005;
+    }
+
+    .ignitionTitle {
+      font-size: min(8vw, 42px);
+      line-height: 1;
+      font-weight: 1000;
+      color: #03140a;
+      text-shadow: 0 2px 0 #ffffff55;
+    }
+
+    .ignitionHint {
+      font-size: 13px;
+      font-weight: 900;
+      color: #041b0d;
+      opacity: .75;
+      letter-spacing: .5px;
+    }

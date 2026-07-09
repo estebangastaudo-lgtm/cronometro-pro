@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Enduro Pro</title>
+  <meta name="theme-color" content="#0b0f17">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+  <div id="ignitionScreen" class="ignitionScreen">
+    <div class="ignitionBox">
+      <div class="ignitionTitle">ENDURO PRO</div>
+      <button id="ignitionStart" class="ignitionButton" type="button">START</button>
+      <div class="ignitionHint">Tocá para encender</div>
+    </div>
+  </div>
+  <div id="splashScreen" class="splashScreen"> <img src="splash.png" alt="Enduro Pro"> </div>
+  <div class="wrap">
+    <div class="card">
+      <h1>🏁 Enduro Pro</h1>
+      <div class="topgrid">
+        <div>
+          <div class="time" id="time">00:00.00</div>
+          <div class="sub" id="sub">Listo</div>
+          <div class="controlsTop"><button id="startPause" class="primary">Iniciar</button></div>
+          <div class="btns" id="ridersBtns"></div>
+          <div class="bottomActions"><button id="finishSession" class="finish" disabled>Finalizar tanda</button><button
+              id="reset" class="warn" disabled>Reset tiempo</button><button id="toggleButtons" disabled>Solo
+              botones</button><button id="export" class="ok" disabled>Exportar jornada</button><button id="clearAll"
+              disabled>Vaciar tanda</button><button id="clearDay" class="warn">Nueva jornada</button></div>
+          <div class="foot">V9.0 Arquitectura: archivos separados, Ignition, BRAAAP, offline, CSV, borrado y reanudación corregida.
+          </div>
+        </div>
+        <div class="cfg">
+          <h2>Configuración</h2>
+          <div class="grid3">
+            <div><label>Cuenta inicial (seg)</label><input id="prepSec" type="number" min="0" step="1" value="20"></div>
+            <div><label>Gap largada (seg)</label><input id="gap" type="number" min="0" step="1" value="15"></div>
+            <div><label>Anti doble-tap (ms)</label><input id="dblMs" type="number" min="0" step="100" value="2000">
+            </div>
+          </div>
+          <div class="grid3" style="margin-top:8px">
+            <div><label>Parciales</label><select id="sectors">
+                <option value="0" selected>OFF (solo vuelta)</option>
+                <option value="2">ON (2 parciales)</option>
+                <option value="3">ON (3 parciales)</option>
+              </select></div>
+            <div><label>Pista / Lugar</label><input id="trackName" type="text" placeholder="Ej: Arena Córdoba"></div>
+            <div><label>Nombre tanda</label><input id="sessionName" type="text" placeholder="Ej: Tanda 1"></div>
+          </div>
+          <div class="grid2">
+            <div><label>Notas tanda</label><textarea id="sessionNotes"
+                placeholder="Terreno, clima, objetivo..."></textarea></div>
+            <div><label>Seteo / notas</label><textarea id="setupNotes"
+                placeholder="Suspensión, neumáticos, mousse..."></textarea></div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px"><button id="addRider">+ Agregar
+              piloto</button><button id="resetNames">Restaurar nombres</button></div>
+          <div class="list" id="ridersList"></div>
+          <div class="history">
+            <h2>Historial de jornada</h2>
+            <div id="historyList"></div>
+          </div>
+        </div>
+      </div>
+      <div class="tables" id="tables"></div>
+    </div>
+  </div>
+  <div class="launchOverlay" id="launchOverlay">
+    <div>
+      <div class="launchTitle" id="launchTitle">PREPARADOS</div>
+      <div class="launchCount" id="launchCount">20</div>
+      <div class="launchPilot" id="launchPilot"></div>
+      <div class="launchHint" id="launchHint">Pantalla de largada</div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script src="js/app.js"></script>
+
+  <!-- Version indicator: shows application name, version and build date.  This is
+       a separate element so that the existing foot and layout remain unchanged. -->
+  <div class="versionIndicator">ENDURO PRO<br>V10.2<br>Build 20260709-2100</div>
+</body>
+
+</html>
