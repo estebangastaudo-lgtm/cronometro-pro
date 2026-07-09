@@ -384,6 +384,69 @@
 }
 
 /*
+ * Solo botones (buttonsOnly) layout enhancements.
+ *
+ * In training mode the interface should be stripped down: only the main
+ * chronometer, the start/pause control, the toggle for Solo botones and
+ * the rider cards remain visible.  Everything else (configuration panels,
+ * tables, bottom actions, subtitles and headings) is hidden.  The rider
+ * cards expand to fill all remaining vertical space so that one, two,
+ * three or four riders each get a large tappable area.  For five or
+ * more riders the existing adaptive grid is preserved.
+ */
+
+/* Hide non‑essential elements when buttonsOnly is active */
+body.buttonsOnly h1,
+body.buttonsOnly .sub,
+body.buttonsOnly .bottomActions,
+body.buttonsOnly .foot,
+body.buttonsOnly .cfg,
+body.buttonsOnly .tables {
+  display: none !important;
+}
+
+/* Promote the left column to a flex container so that the rider list can
+   consume remaining vertical space.  Using flexbox here avoids the need
+   for explicit height calculations in JavaScript. */
+/* Limit the flex conversion of the top‑left column to scenarios with
+   one to four riders.  For five or more riders the original grid
+   behaviour remains untouched to preserve the adaptive layout. */
+body.buttonsOnly.ridersCount1 .topgrid > div:first-child,
+body.buttonsOnly.ridersCount2 .topgrid > div:first-child,
+body.buttonsOnly.ridersCount3 .topgrid > div:first-child,
+body.buttonsOnly.ridersCount4 .topgrid > div:first-child {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  /* ensure the column occupies full viewport height; padding on .wrap
+     accounts for small margins */
+  min-height: 100vh;
+}
+
+/* For up to four riders stack cards vertically and allow them to grow
+   equally within the available space.  The gap is preserved between
+   cards. */
+body.buttonsOnly.ridersCount1 .btns,
+body.buttonsOnly.ridersCount2 .btns,
+body.buttonsOnly.ridersCount3 .btns,
+body.buttonsOnly.ridersCount4 .btns {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+body.buttonsOnly.ridersCount1 .btns .riderBtn,
+body.buttonsOnly.ridersCount2 .btns .riderBtn,
+body.buttonsOnly.ridersCount3 .btns .riderBtn,
+body.buttonsOnly.ridersCount4 .btns .riderBtn {
+  flex: 1 1 auto;
+  /* Remove minimum height on the enlarged cards so they can expand */
+  min-height: 0;
+}
+
+
+/*
  * Adaptive layout for when there are few riders.  A single column is used
  * instead of the default two or four columns, and the rider cards are
  * scaled up using the `--scale` variable defined on .riderBtn.  The

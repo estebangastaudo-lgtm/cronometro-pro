@@ -27,12 +27,26 @@
         <div>
           <div class="time" id="time">00:00.00</div>
           <div class="sub" id="sub">Listo</div>
-          <div class="controlsTop"><button id="startPause" class="primary">Iniciar</button></div>
+        <!--
+          In buttons‑only mode the Solo botones control should sit next to the
+          start/pause button.  Move the toggle button out of the bottom
+          actions panel and place it here so both controls appear on the
+          same row.  Both buttons share the "primary" styling to give
+          a unified look.
+        -->
+        <div class="controlsTop">
+          <button id="startPause" class="primary">Iniciar</button>
+          <button id="toggleButtons" class="primary" disabled>Solo botones</button>
+        </div>
           <div class="btns" id="ridersBtns"></div>
-          <div class="bottomActions"><button id="finishSession" class="finish" disabled>Finalizar tanda</button><button
-              id="reset" class="warn" disabled>Reset tiempo</button><button id="toggleButtons" disabled>Solo
-              botones</button><button id="export" class="ok" disabled>Exportar jornada</button><button id="clearAll"
-              disabled>Vaciar tanda</button><button id="clearDay" class="warn">Nueva jornada</button></div>
+        <div class="bottomActions">
+          <button id="finishSession" class="finish" disabled>Finalizar tanda</button>
+          <button id="reset" class="warn" disabled>Reset tiempo</button>
+          <!-- Solo botones moved to controlsTop; leaving here would duplicate it. -->
+          <button id="export" class="ok" disabled>Exportar jornada</button>
+          <button id="clearAll" disabled>Vaciar tanda</button>
+          <button id="clearDay" class="warn">Nueva jornada</button>
+        </div>
           <div class="foot">V9.0 Arquitectura: archivos separados, Ignition, BRAAAP, offline, CSV, borrado y reanudación corregida.
           </div>
         </div>
@@ -85,7 +99,10 @@
   <!-- Version indicator: shows application name, version and build date.  This is
        a separate element so that the existing foot and layout remain unchanged. -->
   <!-- Update version indicator to reflect the new adaptive interface version. -->
-  <div class="versionIndicator">ENDURO PRO<br>V10.3<br>Build 20260709-2100</div>
+  <!-- Update version indicator for the new Solo Botones Pro release.  The
+       build string can be updated automatically during packaging; here
+       only the version number changes. -->
+  <div class="versionIndicator">ENDURO PRO<br>V10.4<br>Build 20260709-2100</div>
 </body>
 
 </html>
