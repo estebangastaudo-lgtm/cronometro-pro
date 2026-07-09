@@ -131,25 +131,36 @@
       margin-top: 10px
     }
 
-    .riderBtn {
+/*
+ * Rider button base styles.  We introduce a CSS custom property `--scale`
+ * which controls the overall scale of the card and its typography.  By
+ * default the scale is 1 (no change), but body classes such as
+ * `ridersCount1`–`ridersCount4` override this value to enlarge the
+ * cards when there are few riders.  Using a variable here allows the
+ * layout to remain responsive without duplicating many size definitions.
+ */
+.riderBtn {
+      /* default scale for normal layouts */
+      --scale: 1;
       display: grid;
       gap: 8px;
       background: #0e1526;
       border: 2px solid #1f2a44;
       border-radius: 14px;
-      padding: 12px;
+      padding: calc(12px * var(--scale));
       text-align: left;
-      min-height: 126px
+      /* expand card height proportionally when scaling */
+      min-height: calc(126px * var(--scale));
     }
 
     .riderBtn .name {
       font-weight: 950;
-      font-size: 20px;
+      font-size: calc(20px * var(--scale));
       line-height: 1.05
     }
 
     .riderBtn .line1 {
-      font-size: 14px;
+      font-size: calc(14px * var(--scale));
       opacity: .92
     }
 
@@ -157,8 +168,14 @@
       display: flex;
       justify-content: space-between;
       gap: 10px;
-      font-size: 14px;
+      font-size: calc(14px * var(--scale));
       font-variant-numeric: tabular-nums
+    }
+
+    /* When a rider button is in confirm mode, the third child div contains
+       the lap time preview.  Adjust its font size based on the scale. */
+    .riderBtn.confirm > div:last-child {
+      font-size: calc(42px * var(--scale)) !important;
     }
 
     .riderBtn .label {
@@ -365,6 +382,26 @@
   text-align: center;
   line-height: 1.2;
 }
+
+/*
+ * Adaptive layout for when there are few riders.  A single column is used
+ * instead of the default two or four columns, and the rider cards are
+ * scaled up using the `--scale` variable defined on .riderBtn.  The
+ * scaling factors were chosen to enlarge text and card height
+ * progressively depending on the number of riders, without changing the
+ * overall visual style or colours.
+ */
+body.ridersCount1 .btns,
+body.ridersCount2 .btns,
+body.ridersCount3 .btns,
+body.ridersCount4 .btns {
+  grid-template-columns: 1fr !important;
+}
+
+body.ridersCount1 .riderBtn { --scale: 1.6; }
+body.ridersCount2 .riderBtn { --scale: 1.5; }
+body.ridersCount3 .riderBtn { --scale: 1.4; }
+body.ridersCount4 .riderBtn { --scale: 1.3; }
 
     .launchOverlay {
       position: fixed;
