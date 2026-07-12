@@ -282,6 +282,37 @@
       font-size: 16px
     }
 
+    .riderStateName {
+      border-radius: 10px;
+      transition: opacity .18s ease, background .18s ease
+    }
+
+    .riderStateName input[readonly] {
+      cursor: pointer;
+      caret-color: transparent
+    }
+
+    .riderStateName input.editing {
+      cursor: text;
+      caret-color: auto
+    }
+
+    .activeDot {
+      border-color: #65f19a;
+      background: #20c965;
+      box-shadow: 0 0 0 3px #20c96526, 0 0 12px #20c96566
+    }
+
+    .rline.inactive .riderStateName {
+      opacity: .58
+    }
+
+    .rline.inactive .activeDot {
+      border-color: #6b7280;
+      background: #4b5563;
+      box-shadow: none
+    }
+
     .rline button {
       padding: 10px 0;
       font-size: 14px

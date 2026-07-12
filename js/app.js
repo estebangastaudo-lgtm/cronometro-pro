@@ -123,9 +123,11 @@
               if (!cell) {
                 rxml += `<c r="${colLetter(cIdx)}${rowNum}"/>`;
               } else {
-                const { v, s } = cell;
+                const { v, s, n } = cell;
                 const ref = `${colLetter(cIdx)}${rowNum}`;
-                if (s !== undefined) {
+                if (n === true) {
+                  rxml += `<c r="${ref}"${s !== undefined ? ` s="${s}"` : ''}><v>${Number(v)}</v></c>`;
+                } else if (s !== undefined) {
                   rxml += `<c r="${ref}" t="inlineStr" s="${s}"><is><t>${esc(v)}</t></is></c>`;
                 } else {
                   rxml += `<c r="${ref}" t="inlineStr"><is><t>${esc(v)}</t></is></c>`;
@@ -163,11 +165,51 @@
           // we can derive sector times for each lap when exporting.
           const ridersData = (session.riders || []).map(r => {
             const laps = (r.events || []).filter(e => e.kind === 'LAP');
-            return { name: r.name || '', laps, events: r.events || [] };
+            return { id: r.id || '', name: r.name || '', laps, events: r.events || [], chronologicalLaps: [] };
           });
-          const maxLaps = Math.max(0, ...ridersData.map(r => r.laps.length));
-          // Table header row. Include Piloto, laps, Promedio, Total de Tanda, Consistencia and Observación.
+
+          // Each manga owns a consecutive block of columns shared by every
+          // rider. Untagged V10.7 records are kept together as Manga 1 for
+          // backwards compatibility; new records carry their exact mangaNo.
+          const mangaNoOf = lap => {
+            const value = Number(lap && lap.mangaNo);
+            return Number.isInteger(value) && value > 0 ? value : 1;
+          };
+          const mangaNumbers = [...new Set(ridersData.flatMap(r => r.laps.map(mangaNoOf)))].sort((a, b) => a - b);
+          let maxLaps = 0;
+          mangaNumbers.forEach(mangaNo => {
+            const lapsInMangaByRider = ridersData.map(r => r.laps.filter(lap => mangaNoOf(lap) === mangaNo));
+            const mangaLapCount = Math.max(0, ...lapsInMangaByRider.map(laps => laps.length));
+            ridersData.forEach((r, riderIndex) => {
+              while (r.chronologicalLaps.length < maxLaps) r.chronologicalLaps.push(null);
+              for (let i = 0; i < mangaLapCount; i++) {
+                r.chronologicalLaps.push(lapsInMangaByRider[riderIndex][i] || null);
+              }
+            });
+            maxLaps += mangaLapCount;
+          });
+
+          // Reuse the same numeric average that is displayed later. Keep the
+          // original row index as the only tiebreaker so equal averages remain
+          // in their previous stable order. Riders without laps sort last.
+          ridersData.forEach((r, stableIndex) => {
+            r.stableIndex = stableIndex;
+            r.lapTimesMs = r.laps.map(l => l.lapNetMs);
+            r.avgMs = r.lapTimesMs.length
+              ? r.lapTimesMs.reduce((a, b) => a + b, 0) / r.lapTimesMs.length
+              : null;
+          });
+          const rankedRiders = ridersData.slice().sort((a, b) => {
+            if (a.avgMs === null && b.avgMs === null) return a.stableIndex - b.stableIndex;
+            if (a.avgMs === null) return 1;
+            if (b.avgMs === null) return -1;
+            if (a.avgMs === b.avgMs) return a.stableIndex - b.stableIndex;
+            return a.avgMs - b.avgMs;
+          });
+
+          // Table header row. Include Pos., Piloto, laps, Promedio, Total de Tanda, Consistencia and Observación.
           const headerCells = [];
+          headerCells.push({ v: 'Pos.', s: 1 });
           headerCells.push({ v: 'Piloto', s: 1 });
           for (let i = 1; i <= maxLaps; i++) {
             headerCells.push({ v: 'V' + i, s: 1 });
@@ -186,22 +228,24 @@
           const sectorsCount = Number(session.sectors || 0);
 
           // Data rows
-          ridersData.forEach(r => {
-            const lapTimesMs = r.laps.map(l => l.lapNetMs);
+          rankedRiders.forEach((r, rankIndex) => {
+            const lapTimesMs = r.lapTimesMs;
             let best = null;
             let worst = null;
-            let avg = null;
+            let avg = r.avgMs;
             if (lapTimesMs.length) {
               best = Math.min(...lapTimesMs);
               worst = Math.max(...lapTimesMs);
-              avg = lapTimesMs.reduce((a, b) => a + b, 0) / lapTimesMs.length;
             }
             const rowCells = [];
+            // Ranking position is numeric and centered; the stored rider name
+            // remains unchanged in the following cell.
+            rowCells.push({ v: rankIndex + 1, s: 6, n: true });
             // Pilot name remains left aligned (style 0 by default)
             rowCells.push({ v: r.name });
             // Lap cells
             for (let i = 0; i < maxLaps; i++) {
-              const lap = r.laps[i];
+              const lap = r.chronologicalLaps[i];
               if (!lap) {
                 // No lap recorded for this position; leave the cell blank
                 rowCells.push(null);
@@ -233,9 +277,9 @@
                 // fall back to the original two-line layout (time + percentage).
                 if (sectorsCount > 0) {
                   const lines = [];
-                  // Lap number (use stored lapNo if available, otherwise index+1)
-                  const lapNo = typeof lap.lapNo === 'number' ? lap.lapNo : (i + 1);
-                  lines.push('V' + lapNo);
+                  // The label follows the shared chronological column, not
+                  // the rider's individual lap counter.
+                  lines.push('V' + (i + 1));
                   lines.push(timeStr);
                   lines.push(pctLine);
                   // Build sector times by looking back through the rider's events.
@@ -338,9 +382,9 @@
             return `<col min="${idx + 1}" max="${idx + 1}" width="${width}" customWidth="1"/>`;
           }).join('');
           const colsXml = `<cols>${colsXmlParts}</cols>`;
-          // Build sheet view with frozen panes (freeze header row and first column)
-          // freezeRow variable captured before adding header row; freeze first column (A)
-          const xSplit = 1;
+          // Build sheet view with frozen panes (freeze header row plus Pos. and Piloto)
+          // freezeRow variable captured before adding header row; freeze columns A:B
+          const xSplit = 2;
           const ySplit = freezeRow;
           const topLeftCell = `${colLetter(xSplit)}${ySplit + 1}`;
           const sheetViews = `<sheetViews><sheetView tabSelected="1" workbookViewId="0"><pane xSplit="${xSplit}" ySplit="${ySplit}" topLeftCell="${topLeftCell}" activePane="bottomRight" state="frozen"/><selection pane="bottomRight" activeCell="${topLeftCell}" sqref="${topLeftCell}"/></sheetView></sheetViews>`;
@@ -407,21 +451,24 @@
         (window.showToast || showToast)('Informe Excel nativo exportado');
       }
 (() => {
-      const $ = id => document.getElementById(id), STORAGE_KEY = 'cronometro_enduro_v5', DAY_KEY = 'cronometro_enduro_v5_day_history'; const DEFAULT_NAMES = ['Esteban', 'Guille', 'Ariel', 'Richard', 'Gera', 'Fran', 'Ale', 'Franco']; const PALETTE = ['#2a4cff', '#00c2ff', '#00d084', '#ffb000', '#ff5c7a', '#b56bff', '#7bdcff', '#a7ff4f', '#ff7a00', '#00ffa8', '#ff3df2', '#3dff57', '#ffd500', '#6bb3ff', '#ff6bb3', '#a56bff']; const elTime = $('time'), elSub = $('sub'), btnStartPause = $('startPause'), btnReset = $('reset'), btnExport = $('export'), btnClearAll = $('clearAll'), btnClearDay = $('clearDay'), btnFinishSession = $('finishSession'), btnToggleButtons = $('toggleButtons'), elPrepSec = $('prepSec'), elGap = $('gap'), elDblMs = $('dblMs'), elSectors = $('sectors'), elTrackName = $('trackName'), elSessionName = $('sessionName'), elSessionNotes = $('sessionNotes'), elSetupNotes = $('setupNotes'), ridersBtns = $('ridersBtns'), ridersList = $('ridersList'), historyList = $('historyList'), tables = $('tables'), btnAddRider = $('addRider'), btnResetNames = $('resetNames'), toast = $('toast'), launchOverlay = $('launchOverlay'), launchTitle = $('launchTitle'), launchCount = $('launchCount'), launchPilot = $('launchPilot'), launchHint = $('launchHint'); let running = false, startPerf = 0, elapsedMs = 0, rafId = null, launchMode = false, riders = [], dayHistory = [], nextIndex = 0, confirmMap = {}, raceStartElapsedMs = null, raceBaseNetById = {}; function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(2, 8) } function showToast(m) { toast.textContent = m; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 1300) } function format(ms) { ms = Math.max(0, Math.floor(ms)); let ts = Math.floor(ms / 1000), m = Math.floor(ts / 60), s = ts % 60, c = Math.floor((ms % 1000) / 10); return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(c).padStart(2, '0')}` } function formatQuick(ms) { ms = Math.max(0, Math.floor(ms)); let ts = Math.floor(ms / 1000), m = Math.floor(ts / 60), s = ts % 60; return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` } function nowElapsed() { return running ? elapsedMs + (performance.now() - startPerf) : elapsedMs } function getPrepSec() { return Math.max(0, Number(elPrepSec.value || 20)) } function getGapMs() { return Math.max(0, Number(elGap.value || 0)) * 1000 } function getDblMs() { return Math.max(0, Number(elDblMs.value || 0)) } function getSectors() { return Math.max(0, Number(elSectors.value || 0)) } function offsetMsFor(i) { return i * getGapMs() } function totalNetMs(i, t) { return Math.max(0, t - offsetMsFor(i)) } function headerText() { if (launchMode) return 'Secuencia de largada…'; if (!running) return elapsedMs > 0 ? 'Pausado' : 'Listo'; return getSectors() ? `Corriendo… (parciales ${getSectors()})` : 'Corriendo… (vueltas)' } function lapsOf(r) { return r.events.filter(e => e.kind === 'LAP') } function countLaps(r) { return lapsOf(r).length } function lastLap(r) { let l = lapsOf(r); return l.length ? l[l.length - 1] : null } function ensureDefaults() { if (riders.length) return; riders = DEFAULT_NAMES.map((name, i) => ({ id: uid(), name, color: PALETTE[i % PALETTE.length], events: [], sectorIdx: 0, lastTapEpoch: 0, redo: [] })) } function renderHeader() { elTime.textContent = format(nowElapsed()); elSub.textContent = headerText(); btnReset.disabled = !running && elapsedMs === 0 && riders.every(r => r.events.length === 0); btnExport.disabled = dayHistory.length === 0 && riders.every(r => countLaps(r) === 0); btnClearAll.disabled = riders.every(r => r.events.length === 0); btnFinishSession.disabled = riders.every(r => r.events.length === 0); btnToggleButtons.disabled = false } function renderButtons() {
+      // Sequential marker used only to align Excel columns by manga.
+      let currentMangaNo = 0;
+      const $ = id => document.getElementById(id), STORAGE_KEY = 'cronometro_enduro_v5', DAY_KEY = 'cronometro_enduro_v5_day_history'; const DEFAULT_NAMES = ['Esteban', 'Guille', 'Ariel', 'Richard', 'Gera', 'Fran', 'Ale', 'Franco']; const PALETTE = ['#2a4cff', '#00c2ff', '#00d084', '#ffb000', '#ff5c7a', '#b56bff', '#7bdcff', '#a7ff4f', '#ff7a00', '#00ffa8', '#ff3df2', '#3dff57', '#ffd500', '#6bb3ff', '#ff6bb3', '#a56bff']; const elTime = $('time'), elSub = $('sub'), btnStartPause = $('startPause'), btnReset = $('reset'), btnExport = $('export'), btnClearAll = $('clearAll'), btnClearDay = $('clearDay'), btnFinishSession = $('finishSession'), btnToggleButtons = $('toggleButtons'), elPrepSec = $('prepSec'), elGap = $('gap'), elDblMs = $('dblMs'), elSectors = $('sectors'), elTrackName = $('trackName'), elSessionName = $('sessionName'), elSessionNotes = $('sessionNotes'), elSetupNotes = $('setupNotes'), ridersBtns = $('ridersBtns'), ridersList = $('ridersList'), historyList = $('historyList'), tables = $('tables'), btnAddRider = $('addRider'), btnResetNames = $('resetNames'), toast = $('toast'), launchOverlay = $('launchOverlay'), launchTitle = $('launchTitle'), launchCount = $('launchCount'), launchPilot = $('launchPilot'), launchHint = $('launchHint'); let running = false, timingActive = false, startPerf = 0, elapsedMs = 0, mangaStartPerf = 0, mangaElapsedMs = 0, rafId = null, launchMode = false, riders = [], dayHistory = [], nextIndex = 0, confirmMap = {}, raceStartElapsedMs = null, raceBaseNetById = {}, raceOffsetById = {}; function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(2, 8) } function showToast(m) { toast.textContent = m; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 1300) } function format(ms) { ms = Math.max(0, Math.floor(ms)); let ts = Math.floor(ms / 1000), m = Math.floor(ts / 60), s = ts % 60, c = Math.floor((ms % 1000) / 10); return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(c).padStart(2, '0')}` } function formatQuick(ms) { ms = Math.max(0, Math.floor(ms)); let ts = Math.floor(ms / 1000), m = Math.floor(ts / 60), s = ts % 60; return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` } function nowElapsed() { return running && timingActive ? elapsedMs + (performance.now() - startPerf) : elapsedMs } function nowMangaElapsed() { return running && timingActive ? mangaElapsedMs + (performance.now() - mangaStartPerf) : mangaElapsedMs } function getPrepSec() { return Math.max(0, Number(elPrepSec.value || 20)) } function getGapMs() { return Math.max(0, Number(elGap.value || 0)) * 1000 } function getDblMs() { return Math.max(0, Number(elDblMs.value || 0)) } function getSectors() { return Math.max(0, Number(elSectors.value || 0)) } function offsetMsFor(i) { return i * getGapMs() } function totalNetMs(i, t) { return Math.max(0, t - offsetMsFor(i)) } function headerText() { if (launchMode) return 'Secuencia de largada…'; if (!running) return elapsedMs > 0 ? 'Pausado' : 'Listo'; return getSectors() ? `Corriendo… (parciales ${getSectors()})` : 'Corriendo… (vueltas)' } function lapsOf(r) { return r.events.filter(e => e.kind === 'LAP') } function countLaps(r) { return lapsOf(r).length } function lastLap(r) { let l = lapsOf(r); return l.length ? l[l.length - 1] : null } function getActiveRiders() { return riders.filter(r => r.active !== false) } function normalizeRiderName(name) { return String(name || '').trim().toLocaleLowerCase('es') } function ensureDefaults() { if (riders.length) return; riders = DEFAULT_NAMES.map((name, i) => ({ id: uid(), name, color: PALETTE[i % PALETTE.length], active: true, events: [], sectorIdx: 0, lastTapEpoch: 0, redo: [] })) } function renderHeader() { elTime.textContent = format(document.body.classList.contains('buttonsOnly') ? nowMangaElapsed() : nowElapsed()); elSub.textContent = headerText(); btnReset.disabled = !running && elapsedMs === 0 && riders.every(r => r.events.length === 0); btnExport.disabled = dayHistory.length === 0 && riders.every(r => countLaps(r) === 0); btnClearAll.disabled = riders.every(r => r.events.length === 0); btnFinishSession.disabled = riders.every(r => r.events.length === 0); btnToggleButtons.disabled = false } function renderButtons() {
         ridersBtns.innerHTML = '';
         // Adapt layout depending on number of riders.  When there are
         // between 1 and 4 riders, we add a class to the body so that
         // CSS can present the cards in a single column and scale them
         // proportionally.  For 5 or more riders, no class is added and
         // the existing grid layout is preserved.
-        const riderCount = riders.length;
+        const activeRiders = getActiveRiders();
+        const riderCount = activeRiders.length;
         document.body.classList.remove('ridersCount1', 'ridersCount2', 'ridersCount3', 'ridersCount4');
         if (riderCount >= 1 && riderCount <= 4) {
           document.body.classList.add('ridersCount' + riderCount);
         }
         let sec = getSectors();
 
-        riders.forEach((r, idx) => {
+        activeRiders.forEach((r, idx) => {
           let b = document.createElement('button');
           b.className = 'riderBtn';
           if (idx === nextIndex) b.classList.add('next');
@@ -444,10 +491,148 @@
         <div class="line2"><span class="label">Última</span><span class="val">${last}</span></div>
         <div class="line2"><span class="label">Parcial</span><span class="val">${sec ? `P${r.sectorIdx + 1}/${sec}` : 'OFF'}</span></div>`;
           }
-          b.onclick = () => mark(idx);
+          b.onclick = () => mark(r.id, idx);
           ridersBtns.appendChild(b);
         });
-      } function renderConfigList() { ridersList.innerHTML = ''; riders.forEach((r, idx) => { let row = document.createElement('div'); row.className = 'rline'; let nameWrap = document.createElement('div'); nameWrap.className = 'nameWrap'; let dot = document.createElement('div'); dot.className = 'colorDot'; dot.style.borderColor = r.color; dot.style.background = r.color + '22'; let inp = document.createElement('input'); inp.value = r.name; inp.oninput = () => { r.name = (inp.value || '').trim() || `Piloto ${idx + 1}`; renderButtons(); renderTables(); save() }; nameWrap.append(dot, inp); let up = document.createElement('button'); up.textContent = '↑'; up.disabled = idx === 0; up.onclick = e => { e.preventDefault(); move(idx, -1) }; let down = document.createElement('button'); down.textContent = '↓'; down.disabled = idx === riders.length - 1; down.onclick = e => { e.preventDefault(); move(idx, 1) }; let del = document.createElement('button'); del.textContent = 'Borrar'; del.className = 'warn'; del.disabled = riders.length <= 1; del.onclick = e => { e.preventDefault(); removeRider(idx) }; row.append(nameWrap, up, down, del); ridersList.appendChild(row) }); let hint = document.createElement('div'); hint.innerHTML = '<small style="opacity:.75">Orden = orden de largada. Podés reordenar con ↑ / ↓.</small>'; hint.style.marginTop = '6px'; ridersList.appendChild(hint) } function renderHistory() {
+      } function toggleRiderActive(riderId) {
+        if (running || launchMode) {
+          showToast('Pausá la manga para cambiar pilotos');
+          return;
+        }
+        const r = riders.find(item => item.id === riderId);
+        if (!r) return;
+        const activate = r.active === false;
+        const question = activate
+          ? `¿Agregar a ${r.name} a la próxima manga?`
+          : `¿Quitar a ${r.name} de la próxima manga?`;
+        if (!confirm(question)) return;
+        r.active = activate;
+        nextIndex = 0;
+        renderAll();
+        save();
+      }
+
+      function commitRiderName(riderId, value, originalName) {
+        const r = riders.find(item => item.id === riderId);
+        if (!r) return;
+        const cleanName = String(value || '').trim() || originalName || 'Piloto';
+        const duplicate = riders.find(item => item.id !== riderId && normalizeRiderName(item.name) === normalizeRiderName(cleanName));
+
+        if (duplicate) {
+          if (duplicate.active === false && confirm(`Ya existe ${duplicate.name}. ¿Agregar a ${duplicate.name} a la próxima manga?`)) {
+            duplicate.active = true;
+          } else if (duplicate.active !== false) {
+            showToast(`${duplicate.name} ya existe en la jornada`);
+          }
+
+          if (r.events.length === 0) riders = riders.filter(item => item.id !== riderId);
+          else r.name = originalName || r.name;
+        } else {
+          r.name = cleanName;
+        }
+
+        nextIndex = 0;
+        renderAll();
+        save();
+      }
+
+      function renderConfigList() {
+        ridersList.innerHTML = '';
+        riders.forEach((r, idx) => {
+          let row = document.createElement('div');
+          row.className = 'rline' + (r.active === false ? ' inactive' : '');
+
+          let nameWrap = document.createElement('div');
+          nameWrap.className = 'nameWrap riderStateName';
+          nameWrap.title = r.active === false ? 'Inactivo para la próxima manga' : 'Activo para la próxima manga';
+
+          let dot = document.createElement('div');
+          dot.className = 'colorDot activeDot';
+
+          let inp = document.createElement('input');
+          inp.value = r.name;
+          inp.readOnly = true;
+          inp.dataset.riderId = r.id;
+          inp.setAttribute('aria-label', `${r.name}: ${r.active === false ? 'inactivo' : 'activo'} para la próxima manga`);
+
+          let originalName = r.name;
+          let editTimer = null;
+          let editing = false;
+
+          const beginEdit = () => {
+            if (running || launchMode) {
+              showToast('Pausá la manga para editar pilotos');
+              return;
+            }
+            editing = true;
+            inp.readOnly = false;
+            inp.classList.add('editing');
+            inp.focus();
+            inp.select();
+          };
+
+          inp._beginEdit = beginEdit;
+          inp.onpointerdown = () => {
+            if (!editing) editTimer = setTimeout(beginEdit, 650);
+          };
+          inp.onpointerup = inp.onpointercancel = () => {
+            if (editTimer) clearTimeout(editTimer);
+            editTimer = null;
+          };
+          inp.oncontextmenu = e => {
+            if (!editing) e.preventDefault();
+          };
+          inp.onclick = e => {
+            e.stopPropagation();
+            if (!editing) toggleRiderActive(r.id);
+          };
+          inp.ondblclick = e => {
+            e.preventDefault();
+            e.stopPropagation();
+            beginEdit();
+          };
+          inp.oninput = () => {
+            if (!editing) return;
+            r.name = inp.value;
+            renderButtons();
+            renderTables();
+          };
+          inp.onblur = () => {
+            if (!editing) return;
+            editing = false;
+            commitRiderName(r.id, inp.value, originalName);
+          };
+
+          nameWrap.onclick = e => {
+            if (e.target !== inp) toggleRiderActive(r.id);
+          };
+          nameWrap.append(dot, inp);
+
+          let up = document.createElement('button');
+          up.textContent = '↑';
+          up.disabled = idx === 0 || running || launchMode;
+          up.onclick = e => { e.preventDefault(); move(idx, -1) };
+
+          let down = document.createElement('button');
+          down.textContent = '↓';
+          down.disabled = idx === riders.length - 1 || running || launchMode;
+          down.onclick = e => { e.preventDefault(); move(idx, 1) };
+
+          let del = document.createElement('button');
+          del.textContent = 'Borrar';
+          del.className = 'warn';
+          del.disabled = riders.length <= 1 || running || launchMode;
+          del.onclick = e => { e.preventDefault(); removeRider(idx) };
+
+          row.append(nameWrap, up, down, del);
+          ridersList.appendChild(row);
+        });
+
+        let hint = document.createElement('div');
+        hint.innerHTML = '<small style="opacity:.75">Tocá el nombre para activar o quitar de la próxima manga. Mantené presionado para editar. Orden = largada.</small>';
+        hint.style.marginTop = '6px';
+        ridersList.appendChild(hint);
+      } function renderHistory() {
         historyList.innerHTML = '';
         if (!dayHistory.length) {
           historyList.innerHTML = '<div style="opacity:.7">Sin tandas guardadas todavía.</div>';
@@ -564,7 +749,19 @@
             if (typeof e.riderIndex === 'number') e.totalMs = totalNet + offsetMsFor(e.riderIndex);
           }
         });
-      } function renderAll() { renderHeader(); renderButtons(); renderConfigList(); renderTables(); renderHistory() } function tick() { renderHeader(); if (running) rafId = requestAnimationFrame(tick) } function saveDayHistory() { localStorage.setItem(DAY_KEY, JSON.stringify(dayHistory)) } function loadDayHistory() { try { dayHistory = JSON.parse(localStorage.getItem(DAY_KEY) || '[]') } catch { dayHistory = [] } } function save() { let s = { running, elapsedMs, startedAtEpoch: running ? Date.now() : null, prepSec: Number(elPrepSec.value || 20), gapSec: Number(elGap.value || 0), dblMs: Number(elDblMs.value || 0), sectors: Number(elSectors.value || 0), trackName: elTrackName.value || '', sessionName: elSessionName.value || '', sessionNotes: elSessionNotes.value || '', setupNotes: elSetupNotes.value || '', riders, nextIndex }; localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } function load() { let raw = localStorage.getItem(STORAGE_KEY); if (!raw) { ensureDefaults(); return } try { let s = JSON.parse(raw); if (typeof s.prepSec === 'number') elPrepSec.value = String(s.prepSec); if (typeof s.gapSec === 'number') elGap.value = String(s.gapSec); if (typeof s.dblMs === 'number') elDblMs.value = String(s.dblMs); if (typeof s.sectors === 'number') elSectors.value = String(s.sectors); elTrackName.value = s.trackName || ''; elSessionName.value = s.sessionName || ''; elSessionNotes.value = s.sessionNotes || ''; elSetupNotes.value = s.setupNotes || ''; nextIndex = typeof s.nextIndex === 'number' ? s.nextIndex : 0; if (Array.isArray(s.riders) && s.riders.length) riders = s.riders.map((r, i) => ({ id: r.id || uid(), name: r.name || DEFAULT_NAMES[i] || `Piloto ${i + 1}`, color: r.color || PALETTE[i % PALETTE.length], events: Array.isArray(r.events) ? r.events : [], sectorIdx: Number(r.sectorIdx || 0), lastTapEpoch: Number(r.lastTapEpoch || 0), redo: Array.isArray(r.redo) ? r.redo : [] })); else ensureDefaults(); elapsedMs = Number(s.elapsedMs || 0); if (s.running && s.startedAtEpoch) elapsedMs += Math.max(0, Date.now() - Number(s.startedAtEpoch)); running = false; nextIndex = Math.min(Math.max(0, nextIndex), riders.length - 1) } catch { ensureDefaults(); nextIndex = 0 } } function startTimer() { running = true; startPerf = performance.now(); btnStartPause.textContent = 'Pausar'; if (!rafId) rafId = requestAnimationFrame(tick); if (nextIndex < 0 || nextIndex >= riders.length) nextIndex = 0; renderAll(); save() } function getLastNetForRider(r) { if (!r || !Array.isArray(r.events) || !r.events.length) return 0; let lastLap = [...r.events].reverse().find(e => e.kind === 'LAP'); if (lastLap && typeof lastLap.totalNetMs === 'number') return lastLap.totalNetMs; let lastEvent = r.events[r.events.length - 1]; return typeof lastEvent.totalNetMs === 'number' ? lastEvent.totalNetMs : 0 } function buildRaceBaseNetById() { let base = {}; riders.forEach(r => { base[r.id] = getLastNetForRider(r) }); return base } function start() { raceBaseNetById = buildRaceBaseNetById(); raceStartElapsedMs = null; startTimer(); runLaunchSequence() } function pause() { elapsedMs = nowElapsed(); running = false; btnStartPause.textContent = 'Iniciar'; if (rafId) { cancelAnimationFrame(rafId); rafId = null } renderAll(); save() } function sleep(ms) { return new Promise(r => setTimeout(r, ms)) } let audioCtx = null;
+      } function renderAll() { renderHeader(); renderButtons(); renderConfigList(); renderTables(); renderHistory() } function tick() { renderHeader(); if (running) rafId = requestAnimationFrame(tick) } function saveDayHistory() { localStorage.setItem(DAY_KEY, JSON.stringify(dayHistory)) } function loadDayHistory() { try { dayHistory = JSON.parse(localStorage.getItem(DAY_KEY) || '[]') } catch { dayHistory = [] } } function save() { let s = { running, timingActive, elapsedMs, mangaElapsedMs, startedAtEpoch: running && timingActive ? Date.now() : null, prepSec: Number(elPrepSec.value || 20), gapSec: Number(elGap.value || 0), dblMs: Number(elDblMs.value || 0), sectors: Number(elSectors.value || 0), trackName: elTrackName.value || '', sessionName: elSessionName.value || '', sessionNotes: elSessionNotes.value || '', setupNotes: elSetupNotes.value || '', riders, nextIndex }; localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } function load() { let raw = localStorage.getItem(STORAGE_KEY); if (!raw) { ensureDefaults(); return } try { let s = JSON.parse(raw); if (typeof s.prepSec === 'number') elPrepSec.value = String(s.prepSec); if (typeof s.gapSec === 'number') elGap.value = String(s.gapSec); if (typeof s.dblMs === 'number') elDblMs.value = String(s.dblMs); if (typeof s.sectors === 'number') elSectors.value = String(s.sectors); elTrackName.value = s.trackName || ''; elSessionName.value = s.sessionName || ''; elSessionNotes.value = s.sessionNotes || ''; elSetupNotes.value = s.setupNotes || ''; nextIndex = typeof s.nextIndex === 'number' ? s.nextIndex : 0; if (Array.isArray(s.riders) && s.riders.length) riders = s.riders.map((r, i) => ({ id: r.id || uid(), name: r.name || DEFAULT_NAMES[i] || `Piloto ${i + 1}`, color: r.color || PALETTE[i % PALETTE.length], active: r.active !== false, events: Array.isArray(r.events) ? r.events : [], sectorIdx: Number(r.sectorIdx || 0), lastTapEpoch: Number(r.lastTapEpoch || 0), redo: Array.isArray(r.redo) ? r.redo : [] })); else ensureDefaults(); elapsedMs = Number(s.elapsedMs || 0); mangaElapsedMs = Number(s.mangaElapsedMs || 0); if (s.running && s.timingActive && s.startedAtEpoch) { const recovered = Math.max(0, Date.now() - Number(s.startedAtEpoch)); elapsedMs += recovered; mangaElapsedMs += recovered; } running = false; timingActive = false; nextIndex = Math.min(Math.max(0, nextIndex), Math.max(0, getActiveRiders().length - 1)) } catch { ensureDefaults(); nextIndex = 0 } } function startTimer() { running = true; timingActive = false; startPerf = 0; mangaStartPerf = 0; btnStartPause.textContent = 'Pausar'; if (!rafId) rafId = requestAnimationFrame(tick); if (nextIndex < 0 || nextIndex >= getActiveRiders().length) nextIndex = 0; renderAll(); save() } function getLastNetForRider(r) { if (!r || !Array.isArray(r.events) || !r.events.length) return 0; let lastLap = [...r.events].reverse().find(e => e.kind === 'LAP'); if (lastLap && typeof lastLap.totalNetMs === 'number') return lastLap.totalNetMs; let lastEvent = r.events[r.events.length - 1]; return typeof lastEvent.totalNetMs === 'number' ? lastEvent.totalNetMs : 0 } function buildRaceBaseNetById() { let base = {}; riders.forEach(r => { base[r.id] = getLastNetForRider(r) }); return base } function start() { const activeRiders = getActiveRiders(); if (!activeRiders.length) { showToast('Seleccioná al menos un piloto para iniciar la manga.'); return } raceBaseNetById = buildRaceBaseNetById(); raceOffsetById = {}; activeRiders.forEach((r, idx) => { raceOffsetById[r.id] = offsetMsFor(idx) }); raceStartElapsedMs = null; mangaElapsedMs = 0; startTimer(); runLaunchSequence(activeRiders) } function pause() { if (timingActive) { elapsedMs = nowElapsed(); mangaElapsedMs = nowMangaElapsed(); } running = false; timingActive = false; btnStartPause.textContent = 'Iniciar'; if (rafId) { cancelAnimationFrame(rafId); rafId = null } renderAll(); save() } function sleep(ms) { return new Promise(r => setTimeout(r, ms)) } let audioCtx = null;
+
+      function getNextMangaNo() {
+        let maxMangaNo = 0;
+        let hasLegacyLaps = false;
+        riders.forEach(r => (r.events || []).forEach(e => {
+          if (e.kind !== 'LAP') return;
+          const mangaNo = Number(e.mangaNo);
+          if (Number.isInteger(mangaNo) && mangaNo > 0) maxMangaNo = Math.max(maxMangaNo, mangaNo);
+          else hasLegacyLaps = true;
+        }));
+        return Math.max(maxMangaNo, hasLegacyLaps ? 1 : 0) + 1;
+      }
 
       function beep(freq = 900, duration = 120) {
         try {
@@ -590,8 +787,11 @@
         beep(1100, 90);
         await sleep(120);
         beep(1300, 260);
-      } async function runLaunchSequence() {
+      } async function runLaunchSequence(activeRiders) {
         if (launchMode) return;
+        activeRiders = Array.isArray(activeRiders) ? activeRiders.slice() : getActiveRiders();
+        if (!activeRiders.length) return;
+        currentMangaNo = getNextMangaNo();
         launchMode = true;
         renderButtons();
 
@@ -614,19 +814,27 @@
             await sleep(1000);
           }
 
-          for (let i = 0; i < riders.length; i++) {
+          for (let i = 0; i < activeRiders.length; i++) {
             if (!running) break;
 
             // Este instante es la largada real. El verde coincide con el 0.
             launchOverlay.classList.add('green');
             launchTitle.textContent = 'LARGA';
-            launchPilot.textContent = riders[i].name;
+            launchPilot.textContent = activeRiders[i].name;
             launchCount.textContent = '0';
-            launchHint.textContent = `Piloto ${i + 1} de ${riders.length}`;
+            launchHint.textContent = `Piloto ${i + 1} de ${activeRiders.length}`;
             startBeep();
 
             if (i === 0) {
-              raceStartElapsedMs = nowElapsed();
+              // El tiempo real comienza exactamente con el verde del primer piloto.
+              // La cuenta inicial no suma ni al cronómetro general ni al de manga.
+              const launchPerf = performance.now();
+              startPerf = launchPerf;
+              mangaStartPerf = launchPerf;
+              timingActive = true;
+              raceStartElapsedMs = elapsedMs;
+              renderHeader();
+              save();
             }
 
             const launchAt = performance.now();
@@ -634,11 +842,11 @@
             // Flash corto, sin sumar 2 segundos muertos al gap.
             await sleep(1000);
 
-            if (i < riders.length - 1) {
+            if (i < activeRiders.length - 1) {
               const target = launchAt + getGapMs();
               launchOverlay.classList.remove('green');
               launchTitle.textContent = 'PRÓXIMA LARGADA';
-              launchPilot.textContent = riders[i + 1].name;
+              launchPilot.textContent = activeRiders[i + 1].name;
               launchHint.textContent = 'Gap de largada';
 
               let ultimoSegundoSonado = null;
@@ -676,8 +884,9 @@
           renderAll();
           save();
         }
-      } function resetTimeOnly() { running = false; launchMode = false; raceStartElapsedMs = null; raceBaseNetById = {}; launchOverlay.classList.remove('show', 'green'); elapsedMs = 0; startPerf = 0; if (rafId) { cancelAnimationFrame(rafId); rafId = null } btnStartPause.textContent = 'Iniciar'; renderAll(); save() } function clearAll() { raceStartElapsedMs = null; raceBaseNetById = {}; riders.forEach(r => { r.events = []; r.redo = []; r.sectorIdx = 0; r.lastTapEpoch = 0 }); nextIndex = 0; elapsedMs = 0; running = false; launchMode = false; if (rafId) { cancelAnimationFrame(rafId); rafId = null } btnStartPause.textContent = 'Iniciar'; renderAll(); save() } function snapshotCurrentSession() { return { id: uid(), name: elSessionName.value || `Tanda ${dayHistory.length + 1}`, track: elTrackName.value || '', notes: elSessionNotes.value || '', setupNotes: elSetupNotes.value || '', dateISO: new Date().toISOString(), dateText: new Date().toLocaleString(), prepSec: getPrepSec(), gapSec: Math.round(getGapMs() / 1000), sectors: getSectors(), riders: JSON.parse(JSON.stringify(riders)) } } function finishSession() { if (riders.every(r => r.events.length === 0)) { showToast('No hay tiempos para guardar'); return } dayHistory.push(snapshotCurrentSession()); saveDayHistory(); showToast('Tanda guardada ✔'); clearAll(); if (!elSessionName.value) elSessionName.value = `Tanda ${dayHistory.length + 1}`; renderAll(); save() } function recomputeSectorIdx(r) { let sec = getSectors(); if (sec <= 0) { r.sectorIdx = 0; return } let last = [...r.events].reverse().find(e => e.kind === 'SECTOR'); r.sectorIdx = last ? Number(last.sectorNo) % sec : 0 } function mark(idx) {
-        let tEpoch = Date.now(), dbl = getDblMs(), r = riders[idx];
+      } function resetTimeOnly() { running = false; timingActive = false; launchMode = false; raceStartElapsedMs = null; raceBaseNetById = {}; raceOffsetById = {}; launchOverlay.classList.remove('show', 'green'); elapsedMs = 0; mangaElapsedMs = 0; startPerf = 0; mangaStartPerf = 0; if (rafId) { cancelAnimationFrame(rafId); rafId = null } btnStartPause.textContent = 'Iniciar'; renderAll(); save() } function clearAll() { raceStartElapsedMs = null; raceBaseNetById = {}; raceOffsetById = {}; riders.forEach(r => { r.events = []; r.redo = []; r.sectorIdx = 0; r.lastTapEpoch = 0 }); nextIndex = 0; elapsedMs = 0; mangaElapsedMs = 0; running = false; timingActive = false; launchMode = false; if (rafId) { cancelAnimationFrame(rafId); rafId = null } btnStartPause.textContent = 'Iniciar'; renderAll(); save() } function snapshotCurrentSession() { return { id: uid(), name: elSessionName.value || `Tanda ${dayHistory.length + 1}`, track: elTrackName.value || '', notes: elSessionNotes.value || '', setupNotes: elSetupNotes.value || '', dateISO: new Date().toISOString(), dateText: new Date().toLocaleString(), prepSec: getPrepSec(), gapSec: Math.round(getGapMs() / 1000), sectors: getSectors(), riders: JSON.parse(JSON.stringify(riders)) } } function finishSession() { if (riders.every(r => r.events.length === 0)) { showToast('No hay tiempos para guardar'); return } dayHistory.push(snapshotCurrentSession()); saveDayHistory(); showToast('Tanda guardada ✔'); clearAll(); if (!elSessionName.value) elSessionName.value = `Tanda ${dayHistory.length + 1}`; renderAll(); save() } function recomputeSectorIdx(r) { let sec = getSectors(); if (sec <= 0) { r.sectorIdx = 0; return } let last = [...r.events].reverse().find(e => e.kind === 'SECTOR'); r.sectorIdx = last ? Number(last.sectorNo) % sec : 0 } function mark(riderId, activeIdx) {
+        let tEpoch = Date.now(), dbl = getDblMs(), r = riders.find(item => item.id === riderId);
+        if (!r || r.active === false) return;
         if (dbl > 0 && (tEpoch - (r.lastTapEpoch || 0)) < dbl) {
           if (!confirm(`¿Confirmás el tap seguido para ${r.name}?`)) return;
         }
@@ -686,17 +895,20 @@
 
         let totalMs = nowElapsed();
         let netMs;
+        const riderOffsetMs = Object.prototype.hasOwnProperty.call(raceOffsetById, r.id)
+          ? raceOffsetById[r.id]
+          : offsetMsFor(activeIdx);
 
         if (raceStartElapsedMs !== null) {
           // When the timer is paused and started again, the new launch sequence
           // starts a new timing segment. Each rider must continue from their
           // own previous total, otherwise the first lap after resuming becomes 0.
           let baseNet = Number(raceBaseNetById[r.id] || 0);
-          let segmentMs = totalMs - raceStartElapsedMs - offsetMsFor(idx);
+          let segmentMs = totalMs - raceStartElapsedMs - riderOffsetMs;
           netMs = baseNet + Math.max(0, segmentMs);
-          totalMs = netMs + offsetMsFor(idx);
+          totalMs = netMs + riderOffsetMs;
         } else {
-          netMs = totalNetMs(idx, totalMs);
+          netMs = Math.max(0, totalMs - riderOffsetMs);
         }
 
         let sec = getSectors();
@@ -706,7 +918,7 @@
 
         if (sec > 0) {
           let sectorNo = r.sectorIdx + 1;
-          r.events.push({ kind: 'SECTOR', riderIndex: idx, riderName: r.name, sectorNo, totalMs, totalNetMs: netMs, deltaNetMs: deltaNet, stampEpoch: tEpoch });
+          r.events.push({ kind: 'SECTOR', mangaNo: currentMangaNo, riderId: r.id, riderIndex: activeIdx, riderName: r.name, sectorNo, totalMs, totalNetMs: netMs, deltaNetMs: deltaNet, stampEpoch: tEpoch });
           label = `P${sectorNo}/${sec}`;
           r.sectorIdx++;
 
@@ -718,7 +930,7 @@
             let lapNet = netMs - prevTotal;
             let prevBest = previousLaps.length ? Math.min(...previousLaps.map(x => x.lapNetMs)) : Infinity;
             isBest = lapNet < prevBest;
-            r.events.push({ kind: 'LAP', riderIndex: idx, riderName: r.name, lapNo, totalMs, totalNetMs: netMs, deltaNetMs: lapNet, lapNetMs: lapNet, stampEpoch: tEpoch });
+            r.events.push({ kind: 'LAP', mangaNo: currentMangaNo, riderId: r.id, riderIndex: activeIdx, riderName: r.name, lapNo, totalMs, totalNetMs: netMs, deltaNetMs: lapNet, lapNetMs: lapNet, stampEpoch: tEpoch });
             r.sectorIdx = 0;
             label = `${isBest ? '⭐ ' : ''}Vuelta ${lapNo}`;
             timeMs = lapNet;
@@ -732,7 +944,7 @@
           let lapNet = netMs - prevTotal;
           let prevBest = previousLaps.length ? Math.min(...previousLaps.map(x => x.lapNetMs)) : Infinity;
           isBest = lapNet < prevBest;
-          r.events.push({ kind: 'LAP', riderIndex: idx, riderName: r.name, lapNo, totalMs, totalNetMs: netMs, deltaNetMs: lapNet, lapNetMs: lapNet, stampEpoch: tEpoch });
+          r.events.push({ kind: 'LAP', mangaNo: currentMangaNo, riderId: r.id, riderIndex: activeIdx, riderName: r.name, lapNo, totalMs, totalNetMs: netMs, deltaNetMs: lapNet, lapNetMs: lapNet, stampEpoch: tEpoch });
           label = `${isBest ? '⭐ ' : ''}Vuelta ${lapNo}`;
           timeMs = lapNet;
           displayMs = isBest ? 3000 : 2000;
@@ -741,11 +953,86 @@
         confirmMap[r.id] = { label, time: formatQuick(timeMs) };
         setTimeout(() => { delete confirmMap[r.id]; renderButtons() }, displayMs);
 
-        nextIndex = (idx + 1) % riders.length;
+        const activeCount = getActiveRiders().length;
+        nextIndex = activeCount ? (activeIdx + 1) % activeCount : 0;
         renderButtons();
         renderTables();
         save();
-      } function undo(idx) { let r = riders[idx], last = r.events.pop(); if (!last) return; r.redo.push(last); recomputeSectorIdx(r); renderAll(); save() } function redo(idx) { let r = riders[idx], item = r.redo.pop(); if (!item) return; r.events.push(item); recomputeSectorIdx(r); renderAll(); save() } function clearRider(idx) { let r = riders[idx]; r.events = []; r.redo = []; r.sectorIdx = 0; r.lastTapEpoch = 0; renderAll(); save() } function addRider(name = '') { let i = riders.length; riders.push({ id: uid(), name: name || `Piloto ${i + 1}`, color: PALETTE[i % PALETTE.length], events: [], sectorIdx: 0, lastTapEpoch: 0, redo: [] }); renderAll(); save() } function removeRider(idx) { let r = riders[idx]; if (!confirm(`¿Borrar a ${r.name}?`)) return; riders.splice(idx, 1); nextIndex = 0; renderAll(); save() } function move(idx, dir) { let j = idx + dir; if (j < 0 || j >= riders.length) return;[riders[idx], riders[j]] = [riders[j], riders[idx]]; nextIndex = 0; renderAll(); save() } function restoreNames() { riders = DEFAULT_NAMES.map((name, i) => ({ id: uid(), name, color: PALETTE[i % PALETTE.length], events: [], sectorIdx: 0, lastTapEpoch: 0, redo: [] })); nextIndex = 0; renderAll(); save() } function buildSessionsForExport() { let s = dayHistory.slice(); if (!riders.every(r => r.events.length === 0)) s.push(snapshotCurrentSession()); return s } function exportExcelLikeXls() {
+      } function undo(idx) { let r = riders[idx], last = r.events.pop(); if (!last) return; r.redo.push(last); recomputeSectorIdx(r); renderAll(); save() } function redo(idx) { let r = riders[idx], item = r.redo.pop(); if (!item) return; r.events.push(item); recomputeSectorIdx(r); renderAll(); save() } function clearRider(idx) { let r = riders[idx]; r.events = []; r.redo = []; r.sectorIdx = 0; r.lastTapEpoch = 0; renderAll(); save() }
+
+      function addRider(name = '') {
+        if (running || launchMode) {
+          showToast('Pausá la manga para agregar pilotos');
+          return;
+        }
+
+        const requestedName = String(name || '').trim();
+        if (requestedName) {
+          const existing = riders.find(r => normalizeRiderName(r.name) === normalizeRiderName(requestedName));
+          if (existing) {
+            if (existing.active === false && confirm(`Ya existe ${existing.name}. ¿Agregar a ${existing.name} a la próxima manga?`)) {
+              existing.active = true;
+              nextIndex = 0;
+              renderAll();
+              save();
+            } else if (existing.active !== false) {
+              showToast(`${existing.name} ya existe en la jornada`);
+            }
+            return;
+          }
+        }
+
+        let number = riders.length + 1;
+        let newName = requestedName || `Piloto ${number}`;
+        while (riders.some(r => normalizeRiderName(r.name) === normalizeRiderName(newName))) {
+          number++;
+          newName = `Piloto ${number}`;
+        }
+
+        const newRider = { id: uid(), name: newName, color: PALETTE[riders.length % PALETTE.length], active: true, events: [], sectorIdx: 0, lastTapEpoch: 0, redo: [] };
+        riders.push(newRider);
+        renderAll();
+        save();
+
+        requestAnimationFrame(() => {
+          const input = ridersList.querySelector(`input[data-rider-id="${newRider.id}"]`);
+          if (input && typeof input._beginEdit === 'function') input._beginEdit();
+        });
+      }
+
+      function removeRider(idx) {
+        if (running || launchMode) {
+          showToast('Pausá la manga para borrar pilotos');
+          return;
+        }
+        let r = riders[idx];
+        if (!r) return;
+        if (!confirm(`¿Eliminar definitivamente a ${r.name} y todos sus registros de la jornada?`)) return;
+        riders.splice(idx, 1);
+        dayHistory = dayHistory.map(session => ({
+          ...session,
+          riders: Array.isArray(session.riders) ? session.riders.filter(item => item.id !== r.id) : []
+        }));
+        saveDayHistory();
+        nextIndex = 0;
+        renderAll();
+        save();
+      }
+
+      function move(idx, dir) {
+        if (running || launchMode) {
+          showToast('Pausá la manga para cambiar el orden');
+          return;
+        }
+        let j = idx + dir;
+        if (j < 0 || j >= riders.length) return;
+        [riders[idx], riders[j]] = [riders[j], riders[idx]];
+        nextIndex = 0;
+        renderAll();
+        save();
+      }
+
+      function restoreNames() { if (running || launchMode) { showToast('Pausá la manga para restaurar nombres'); return } riders = DEFAULT_NAMES.map((name, i) => ({ id: uid(), name, color: PALETTE[i % PALETTE.length], active: true, events: [], sectorIdx: 0, lastTapEpoch: 0, redo: [] })); nextIndex = 0; renderAll(); save() } function buildSessionsForExport() { let s = dayHistory.slice(); if (!riders.every(r => r.events.length === 0)) s.push(snapshotCurrentSession()); return s } function exportExcelLikeXls() {
         // Build all sessions to export (current active plus day history).
         const sessions = buildSessionsForExport();
         if (!sessions.length) {
@@ -926,7 +1213,7 @@
         a.remove();
         URL.revokeObjectURL(url);
         showToast('Informe PRO exportado');
-      } btnStartPause.onclick = () => running ? pause() : start(); btnReset.onclick = resetTimeOnly; btnFinishSession.onclick = () => { if (confirm('¿Finalizar y guardar esta tanda?')) finishSession() }; btnClearAll.onclick = () => { if (confirm('¿Vaciar registros de la tanda actual?')) clearAll() }; btnClearDay.onclick = () => { if (confirm('¿Borrar la jornada actual completa?')) { dayHistory = []; saveDayHistory(); renderAll() } }; btnExport.onclick = exportExcelXlsx; btnToggleButtons.onclick = () => { document.body.classList.toggle('buttonsOnly'); save() }; btnAddRider.onclick = () => addRider(); btnResetNames.onclick = () => { if (confirm('¿Restaurar nombres por defecto?')) restoreNames() };[elPrepSec, elGap, elDblMs, elTrackName, elSessionName, elSessionNotes, elSetupNotes].forEach(el => el.oninput = () => { renderAll(); save() }); elSectors.onchange = () => { riders.forEach(r => { r.sectorIdx = 0; r.redo = [] }); renderAll(); save() }; loadDayHistory(); load(); ensureDefaults(); renderAll(); const ignitionScreen = document.getElementById('ignitionScreen');
+      } btnStartPause.onclick = () => running ? pause() : start(); btnReset.onclick = resetTimeOnly; btnFinishSession.onclick = () => { if (confirm('¿Finalizar y guardar esta tanda?')) finishSession() }; btnClearAll.onclick = () => { if (confirm('¿Vaciar registros de la tanda actual?')) clearAll() }; btnClearDay.onclick = () => { if (confirm('¿Borrar la jornada actual completa?')) { dayHistory = []; saveDayHistory(); renderAll() } }; btnExport.onclick = exportExcelXlsx; btnToggleButtons.onclick = () => { document.body.classList.toggle('buttonsOnly'); renderHeader(); save() }; btnAddRider.onclick = () => addRider(); btnResetNames.onclick = () => { if (confirm('¿Restaurar nombres por defecto?')) restoreNames() };[elPrepSec, elGap, elDblMs, elTrackName, elSessionName, elSessionNotes, elSetupNotes].forEach(el => el.oninput = () => { renderAll(); save() }); elSectors.onchange = () => { riders.forEach(r => { r.sectorIdx = 0; r.redo = [] }); renderAll(); save() }; loadDayHistory(); load(); ensureDefaults(); renderAll(); const ignitionScreen = document.getElementById('ignitionScreen');
       const ignitionStart = document.getElementById('ignitionStart');
       const splash = document.getElementById('splashScreen');
       let ignitionUsed = false;
@@ -997,8 +1284,24 @@
         finishSplashAfterStart(2000);
       }
       if ('serviceWorker' in navigator) {
+        let swRegistration = null;
+        const checkForAppUpdate = () => {
+          if (swRegistration && typeof swRegistration.update === 'function') {
+            swRegistration.update().catch(() => {});
+          }
+        };
+
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch(() => {});
+          navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+            .then(registration => {
+              swRegistration = registration;
+              checkForAppUpdate();
+            })
+            .catch(() => {});
+        });
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') checkForAppUpdate();
         });
       }
       window.addEventListener('visibilitychange', save);
