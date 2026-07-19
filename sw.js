@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'enduro-pro-';
-const CACHE_NAME = 'enduro-pro-v10.8';
+const CACHE_NAME = 'enduro-pro-v10.8.1';
 const INDEX_FALLBACK = './index.html';
 
 const APP_SHELL = [
