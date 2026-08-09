@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101410">
+  <title>Enduro Link LAB</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#101110;color:#fff;font-family:Arial,sans-serif}
+    main{max-width:620px;margin:auto;padding:24px}h1{color:#68df3f;font-size:36px;margin:10px 0 6px}
+    .sub{color:#aaa;margin-bottom:24px}.card{background:#202220;border-radius:18px;padding:20px;margin:14px 0}
+    button{width:100%;padding:18px;border:0;border-radius:14px;background:#68df3f;color:#071006;font-size:20px;font-weight:bold}
+    button:disabled{opacity:.45}.estado{font-size:25px;font-weight:bold}.espera{color:#ddd}.ok{color:#68df3f}.error{color:#ff6767}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dato{font-size:34px;font-weight:bold;margin-top:6px}
+    .rotulo{font-size:13px;color:#aaa}.detalle{white-space:pre-wrap;word-break:break-word;color:#ccc;font-family:monospace;font-size:13px}
+    a{color:#68df3f}.nota{color:#f2c94c;font-size:14px;line-height:1.4}
+  </style>
+</head>
+<body><main>
+  <h1>ENDURO LINK LAB</h1>
+  <div class="sub">Prueba aislada. No registra tiempos ni modifica Enduro Pro.</div>
+
+  <div class="card">
+    <div id="estado" class="estado espera">Listo para probar</div>
+    <p id="mensaje">Conectá el teléfono a la red ENDURO_LINK y tocá el botón.</p>
+    <button id="probar" type="button">PROBAR CONEXIÓN</button>
+  </div>
+
+  <div class="grid">
+    <div class="card"><div class="rotulo">Nodo</div><div id="nodo" class="dato">--</div></div>
+    <div class="card"><div class="rotulo">Evento</div><div id="evento" class="dato">--</div></div>
+    <div class="card"><div class="rotulo">Aceptados</div><div id="aceptados" class="dato">--</div></div>
+    <div class="card"><div class="rotulo">Descartados</div><div id="descartados" class="dato">--</div></div>
+  </div>
+
+  <div class="card">
+    <div class="rotulo">Diagnóstico</div>
+    <div id="detalle" class="detalle">Origen de esta página: comprobando…</div>
+  </div>
+
+  <div class="card nota">
+    Si falla, comprobá primero que <a href="http://192.168.4.1" target="_blank" rel="noreferrer">192.168.4.1</a>
+    abra la pantalla local de la base. Después volvé a esta pestaña y repetí la prueba.
+  </div>
+
+  <script>
+    const API = 'http://192.168.4.1/api/estado';
+    const estado = document.getElementById('estado');
+    const mensaje = document.getElementById('mensaje');
+    const detalle = document.getElementById('detalle');
+    const boton = document.getElementById('probar');
+    let intervalo = null;
+
+    function mostrarDatos(d) {
+      document.getElementById('nodo').textContent = d.hayEvento ? d.nodo : '--';
+      document.getElementById('evento').textContent = d.hayEvento ? d.evento : '--';
+      document.getElementById('aceptados').textContent = d.aceptados;
+      document.getElementById('descartados').textContent = d.descartados;
+    }
+
+    async function consultar(silencioso = false) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      try {
+        const respuesta = await fetch(API, {
+          method: 'GET',
+          mode: 'cors',
+          cache: 'no-store',
+          signal: controller.signal
+        });
+        if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
+        const datos = await respuesta.json();
+        mostrarDatos(datos);
+        estado.textContent = 'CONEXIÓN PERMITIDA';
+        estado.className = 'estado ok';
+        mensaje.textContent = 'Chrome puede leer los eventos de la Base.';
+        detalle.textContent =
+          'Página: ' + location.href + '\n' +
+          'API: ' + API + '\n' +
+          'Respuesta: ' + JSON.stringify(datos);
+        if (!intervalo) intervalo = setInterval(() => consultar(true), 700);
+        return true;
+      } catch (error) {
+        if (!silencioso) {
+          estado.textContent = 'CONEXIÓN BLOQUEADA O NO DISPONIBLE';
+          estado.className = 'estado error';
+          mensaje.textContent = 'Sacá una captura de esta pantalla. No se modificó ningún tiempo.';
+          detalle.textContent =
+            'Página: ' + location.href + '\n' +
+            'API: ' + API + '\n' +
+            'Error: ' + (error && error.message ? error.message : String(error)) + '\n' +
+            'Online informado: ' + navigator.onLine;
+        }
+        return false;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    detalle.textContent = 'Página: ' + location.href + '\nAPI: ' + API;
+    boton.addEventListener('click', async () => {
+      boton.disabled = true;
+      estado.textContent = 'PROBANDO…';
+      estado.className = 'estado espera';
+      mensaje.textContent = 'Consultando la Base V0.4.1 CORS LAB…';
+      await consultar(false);
+      boton.disabled = false;
+    });
+  </script>
+</main></body>
+</html>
