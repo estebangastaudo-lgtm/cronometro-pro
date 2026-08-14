@@ -93,8 +93,16 @@
       <div class="launchHint" id="launchHint">Pantalla de largada</div>
     </div>
   </div>
+  <div class="soloRideLock" id="soloRideLock" aria-live="polite">
+    <div class="soloRideResult" id="soloRideResult">
+      <div class="soloRideLabel" id="soloRideLabel">PANTALLA BLOQUEADA</div>
+      <div class="soloRideTime" id="soloRideTime"></div>
+      <div class="soloRideDetail" id="soloRideDetail">Solo responde al botón Bluetooth</div>
+    </div>
+    <button class="soloUnlock" id="soloUnlock" type="button">Mantener 3 segundos para desbloquear</button>
+  </div>
   <div class="toast" id="toast"></div>
-  <script src="js/app.js?v=solo-v0.1"></script>
+  <script src="js/app.js?v=solo-v0.2"></script>
 
   <!-- Version indicator: shows application name, version and build date.  This is
        a separate element so that the existing foot and layout remain unchanged. -->
@@ -103,7 +111,7 @@
        build string can be updated automatically during packaging; here
        only the version number changes. -->
   <!-- Updated version indicator for V10.5 release with fixed Solo Botones layout. -->
-  <div class="versionIndicator">ENDURO SOLO<br>V0.1<br>Bluetooth</div>
+  <div class="versionIndicator">ENDURO SOLO<br>V0.2<br>Modo moto</div>
 </body>
 
 </html>

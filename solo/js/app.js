@@ -596,7 +596,12 @@ async function exportExcelXlsx() {
     launchTitle = $("launchTitle"),
     launchCount = $("launchCount"),
     launchPilot = $("launchPilot"),
-    launchHint = $("launchHint");
+    launchHint = $("launchHint"),
+    soloRideLock = $("soloRideLock"),
+    soloRideLabel = $("soloRideLabel"),
+    soloRideTime = $("soloRideTime"),
+    soloRideDetail = $("soloRideDetail"),
+    soloUnlock = $("soloUnlock");
   let running = false,
     timingActive = false,
     timerStartEpochMs = 0,
@@ -614,6 +619,27 @@ async function exportExcelXlsx() {
     raceStartElapsedMs = null,
     raceBaseNetById = {},
     raceOffsetById = {};
+  let soloResultTimer = null;
+
+  function setSoloRideLock(locked) {
+    soloRideLock.classList.toggle("show", Boolean(locked));
+    if (!locked) soloRideLock.classList.remove("result", "best", "normal");
+  }
+
+  function showSoloRideResult(lapNo, lapMs, improved) {
+    clearTimeout(soloResultTimer);
+    setSoloRideLock(true);
+    soloRideLock.classList.remove("best", "normal");
+    soloRideLock.classList.add("result", improved ? "best" : "normal");
+    soloRideLabel.textContent = improved ? "MEJOR VUELTA" : `VUELTA ${lapNo}`;
+    soloRideTime.textContent = format(lapMs);
+    soloRideDetail.textContent = improved
+      ? "¡Mejoraste tu tiempo!"
+      : lapNo === 1 ? "Primera referencia" : "No mejoró la mejor vuelta";
+    soloResultTimer = setTimeout(() => {
+      soloRideLock.classList.remove("result", "best", "normal");
+    }, 15000);
+  }
   function uid() {
     return (
       Math.random().toString(36).slice(2, 10) +
@@ -1243,6 +1269,7 @@ async function exportExcelXlsx() {
     document.body.classList.add("buttonsOnly");
     renderAll();
     save();
+    setSoloRideLock(false);
   }
   function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
@@ -1439,6 +1466,7 @@ async function exportExcelXlsx() {
     document.body.classList.add("buttonsOnly");
     renderAll();
     save();
+    setSoloRideLock(true);
   }
 
   async function runLaunchSequence(activeRiders) {
@@ -1656,7 +1684,7 @@ async function exportExcelXlsx() {
         let prevBest = previousLaps.length
           ? Math.min(...previousLaps.map((x) => x.lapNetMs))
           : Infinity;
-        isBest = lapNet < prevBest;
+        isBest = previousLaps.length > 0 && lapNet < prevBest;
         r.events.push({
           kind: "LAP",
           mangaNo: currentMangaNo,
@@ -1673,7 +1701,8 @@ async function exportExcelXlsx() {
         r.sectorIdx = 0;
         label = `${isBest ? "⭐ " : ""}Vuelta ${lapNo}`;
         timeMs = lapNet;
-        displayMs = isBest ? 3000 : 2000;
+        displayMs = 15000;
+        showSoloRideResult(lapNo, lapNet, isBest);
       }
     } else {
       let previousLaps = r.events.filter((x) => x.kind === "LAP");
@@ -1686,7 +1715,7 @@ async function exportExcelXlsx() {
       let prevBest = previousLaps.length
         ? Math.min(...previousLaps.map((x) => x.lapNetMs))
         : Infinity;
-      isBest = lapNet < prevBest;
+      isBest = previousLaps.length > 0 && lapNet < prevBest;
       r.events.push({
         kind: "LAP",
         mangaNo: currentMangaNo,
@@ -1702,7 +1731,8 @@ async function exportExcelXlsx() {
       });
       label = `${isBest ? "⭐ " : ""}Vuelta ${lapNo}`;
       timeMs = lapNet;
-      displayMs = isBest ? 3000 : 2000;
+      displayMs = 15000;
+      showSoloRideResult(lapNo, lapNet, isBest);
     }
 
     confirmMap[r.id] = { label, time: formatQuick(timeMs) };
@@ -2086,6 +2116,29 @@ async function exportExcelXlsx() {
     showToast("Informe PRO exportado");
   }
   btnStartPause.onclick = () => (running ? pause() : start());
+
+  let unlockTimer = null;
+  const cancelUnlock = () => {
+    clearTimeout(unlockTimer);
+    unlockTimer = null;
+    soloUnlock.classList.remove("holding");
+  };
+  const beginUnlock = (evento) => {
+    evento.preventDefault();
+    if (unlockTimer) return;
+    soloUnlock.classList.add("holding");
+    unlockTimer = setTimeout(() => {
+      cancelUnlock();
+      pause();
+      showToast("Pantalla desbloqueada");
+    }, 3000);
+  };
+  soloUnlock.addEventListener("touchstart", beginUnlock, { passive: false });
+  soloUnlock.addEventListener("touchend", cancelUnlock);
+  soloUnlock.addEventListener("touchcancel", cancelUnlock);
+  soloUnlock.addEventListener("mousedown", beginUnlock);
+  soloUnlock.addEventListener("mouseup", cancelUnlock);
+  soloUnlock.addEventListener("mouseleave", cancelUnlock);
   btnReset.onclick = resetTimeOnly;
   btnFinishSession.onclick = () => {
     if (confirm("¿Finalizar y guardar esta tanda?")) finishSession();
