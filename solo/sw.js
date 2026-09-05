@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'enduro-solo-';
-const CACHE_NAME = 'enduro-solo-v0.3';
+const CACHE_NAME = 'enduro-solo-v0.3.1';
 const INDEX_FALLBACK = './index.html';
 
 const APP_SHELL = [
@@ -11,9 +11,9 @@ const APP_SHELL = [
   './audio/enduro_braap.mp3',
   './manifest.json',
   './splash.png',
-  './apple-touch-icon.png',
-  './icon-192.png',
-  './icon-512.png'
+  './apple-touch-icon-solo.png',
+  './icon-solo-192.png',
+  './icon-solo-512.png'
 ];
 
 self.addEventListener('install', event => {
