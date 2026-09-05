@@ -2164,11 +2164,35 @@ async function exportExcelXlsx() {
     if (confirm("¿Restaurar nombres por defecto?")) restoreNames();
   };
 
-  // ENDURO SOLO V0.1
-  // El ESP32-C3 se presenta ante el iPhone como teclado Bluetooth y
-  // envia la letra "t". Cada pulsacion registra al unico piloto activo.
+  // ENDURO SOLO V0.3
+  // F12 registra el paso sin escribir caracteres en otras aplicaciones.
+  // F13..F23 informan bateria en pasos de 10% (0..100%).
+  const batteryStatus = document.getElementById("batteryStatus");
+  const batteryValue = document.getElementById("batteryValue");
+
+  function updateSoloBattery(percent) {
+    const value = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+    batteryValue.textContent = `${value}%`;
+    batteryStatus.classList.remove("isUnknown", "isLow", "isMedium", "isGood");
+    batteryStatus.classList.add(value <= 20 ? "isLow" : value <= 50 ? "isMedium" : "isGood");
+    batteryStatus.title = `Batería del botón Bluetooth: ${value}%`;
+  }
+
   document.addEventListener("keydown", (evento) => {
-    if (evento.repeat || String(evento.key).toLowerCase() !== "t") return;
+    if (evento.repeat) return;
+
+    const key = String(evento.key);
+    const functionMatch = /^F(1[3-9]|2[0-3])$/i.exec(key);
+    if (functionMatch) {
+      evento.preventDefault();
+      const functionNumber = Number(functionMatch[1]);
+      updateSoloBattery((functionNumber - 13) * 10);
+      return;
+    }
+
+    // Se mantiene la T solamente para aceptar el firmware anterior durante
+    // la transición. El firmware V0.3 utiliza F12.
+    if (key !== "F12" && key.toLowerCase() !== "t") return;
 
     evento.preventDefault();
     const piloto = getActiveRiders()[0];

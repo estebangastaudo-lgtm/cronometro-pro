@@ -1,12 +1,12 @@
 const CACHE_PREFIX = 'enduro-solo-';
-const CACHE_NAME = 'enduro-solo-v0.2';
+const CACHE_NAME = 'enduro-solo-v0.3';
 const INDEX_FALLBACK = './index.html';
 
 const APP_SHELL = [
   './',
   './index.html',
-  './css/style.css',
-  './js/app.js?v=solo-v0.2',
+  './css/style.css?v=solo-v0.3',
+  './js/app.js?v=solo-v0.3',
   './js/lib/jszip.min.js',
   './audio/enduro_braap.mp3',
   './manifest.json',

@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#0b0f17">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=solo-v0.3">
 </head>
 
 <body>
@@ -23,6 +23,9 @@
   <div class="wrap">
     <div class="card">
       <h1>🏁 Enduro Solo</h1>
+      <div id="batteryStatus" class="batteryStatus isUnknown" aria-live="polite" title="Batería del botón Bluetooth">
+        <span aria-hidden="true">🔋</span><span id="batteryValue">--%</span>
+      </div>
       <div class="topgrid">
         <div>
           <div class="time" id="time">00:00.00</div>
@@ -47,7 +50,8 @@
           <button id="clearAll" disabled>Vaciar tanda</button>
           <button id="clearDay" class="warn">Nueva jornada</button>
         </div>
-          <div class="foot">Botón Bluetooth directo al iPhone. Cada pulsación registra tu paso.
+          <div class="foot">Botón Bluetooth directo al iPhone. Cada pulsación registra tu paso.<br>
+            Para mostrar u ocultar el teclado, mantené apretado el botón durante 2 segundos con el cronómetro pausado.
           </div>
         </div>
         <div class="cfg">
@@ -102,7 +106,7 @@
     <button class="soloUnlock" id="soloUnlock" type="button">Mantener 3 segundos para desbloquear</button>
   </div>
   <div class="toast" id="toast"></div>
-  <script src="js/app.js?v=solo-v0.2"></script>
+  <script src="js/app.js?v=solo-v0.3"></script>
 
   <!-- Version indicator: shows application name, version and build date.  This is
        a separate element so that the existing foot and layout remain unchanged. -->
@@ -111,7 +115,7 @@
        build string can be updated automatically during packaging; here
        only the version number changes. -->
   <!-- Updated version indicator for V10.5 release with fixed Solo Botones layout. -->
-  <div class="versionIndicator">ENDURO SOLO<br>V0.2<br>Modo moto</div>
+  <div class="versionIndicator">ENDURO SOLO<br>V0.3<br>Batería + teclado</div>
 </body>
 
 </html>

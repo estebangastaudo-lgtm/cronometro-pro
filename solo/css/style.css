@@ -852,3 +852,28 @@ body.buttonsOnly.ridersCount4 .versionIndicator {
   width: 100%;
   margin-top: 0;
 }
+/* Estado del nodo Bluetooth: siempre visible, incluso con la pantalla bloqueada. */
+.batteryStatus {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 10px);
+  right: 12px;
+  z-index: 21000;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 68px;
+  justify-content: center;
+  padding: 7px 10px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 999px;
+  background: rgba(11,15,23,.9);
+  color: #dbe7f7;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 4px 16px rgba(0,0,0,.28);
+  backdrop-filter: blur(8px);
+}
+.batteryStatus.isGood { color: #72db44; }
+.batteryStatus.isMedium { color: #f0c34b; }
+.batteryStatus.isLow { color: #ff665f; }
+.batteryStatus.isUnknown { color: #8e9aab; }
