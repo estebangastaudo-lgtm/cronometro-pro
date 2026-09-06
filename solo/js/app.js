@@ -2165,8 +2165,8 @@ async function exportExcelXlsx() {
   };
 
   // ENDURO SOLO V0.3
-  // F12 registra el paso sin escribir caracteres en otras aplicaciones.
-  // F13..F23 informan bateria en pasos de 10% (0..100%).
+  // V0.3.2: iOS entrega combinaciones Ctrl+Alt+Shift de teclas normales.
+  // KeyT registra el paso; Digit0..Digit9 y KeyB informan bateria.
   const batteryStatus = document.getElementById("batteryStatus");
   const batteryValue = document.getElementById("batteryValue");
 
@@ -2182,6 +2182,15 @@ async function exportExcelXlsx() {
     if (evento.repeat) return;
 
     const key = String(evento.key);
+    const enduroChord = evento.ctrlKey && evento.altKey && evento.shiftKey;
+
+    if (enduroChord && (/^Digit[0-9]$/.test(evento.code) || evento.code === "KeyB")) {
+      evento.preventDefault();
+      const percent = evento.code === "KeyB" ? 100 : Number(evento.code.slice(-1)) * 10;
+      updateSoloBattery(percent);
+      return;
+    }
+
     const functionMatch = /^F(1[3-9]|2[0-3])$/i.exec(key);
     if (functionMatch) {
       evento.preventDefault();
@@ -2190,9 +2199,9 @@ async function exportExcelXlsx() {
       return;
     }
 
-    // Se mantiene la T solamente para aceptar el firmware anterior durante
-    // la transición. El firmware V0.3 utiliza F12.
-    if (key !== "F12" && key.toLowerCase() !== "t") return;
+    // También conserva compatibilidad con los firmwares anteriores.
+    const enduroLap = enduroChord && evento.code === "KeyT";
+    if (!enduroLap && key !== "F12" && key.toLowerCase() !== "t") return;
 
     evento.preventDefault();
     const piloto = getActiveRiders()[0];
