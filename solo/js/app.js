@@ -2169,6 +2169,7 @@ async function exportExcelXlsx() {
   // KeyT registra el paso; Digit0..Digit9 y KeyB informan bateria.
   const batteryStatus = document.getElementById("batteryStatus");
   const batteryValue = document.getElementById("batteryValue");
+  let batteryCodePendingUntil = 0;
 
   function updateSoloBattery(percent) {
     const value = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
@@ -2182,6 +2183,23 @@ async function exportExcelXlsx() {
     if (evento.repeat) return;
 
     const key = String(evento.key);
+    const lowerKey = key.toLowerCase();
+    const editing = evento.target instanceof Element &&
+      evento.target.matches("input, textarea, select, [contenteditable='true']");
+
+    if (Date.now() <= batteryCodePendingUntil && (/^[0-9]$/.test(key) || lowerKey === "a")) {
+      evento.preventDefault();
+      batteryCodePendingUntil = 0;
+      updateSoloBattery(lowerKey === "a" ? 100 : Number(key) * 10);
+      return;
+    }
+
+    if (lowerKey === "b" && running && !editing) {
+      evento.preventDefault();
+      batteryCodePendingUntil = Date.now() + 500;
+      return;
+    }
+
     const enduroChord = evento.ctrlKey && evento.altKey && evento.shiftKey;
 
     if (enduroChord && (/^Digit[0-9]$/.test(evento.code) || evento.code === "KeyB")) {
@@ -2202,6 +2220,7 @@ async function exportExcelXlsx() {
     // También conserva compatibilidad con los firmwares anteriores.
     const enduroLap = enduroChord && evento.code === "KeyT";
     if (!enduroLap && key !== "F12" && key.toLowerCase() !== "t") return;
+    if (editing && !enduroLap) return;
 
     evento.preventDefault();
     const piloto = getActiveRiders()[0];
