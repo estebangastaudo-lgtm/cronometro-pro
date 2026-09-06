@@ -1254,6 +1254,12 @@ async function exportExcelXlsx() {
       showToast("Seleccioná al menos un piloto para iniciar la manga.");
       return;
     }
+    // En Android puede quedar un campo de configuracion con foco aunque el
+    // teclado visual ya no se vea. Al iniciar, la pantalla pasa a modo carrera
+    // y toda pulsacion del boton debe tener prioridad sobre ese campo.
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     raceBaseNetById = buildRaceBaseNetById();
     raceOffsetById = {};
     const gapMs = getGapMs();
@@ -2216,7 +2222,7 @@ async function exportExcelXlsx() {
       return;
     }
 
-    if (lowerKey === "b" && running && !editing) {
+    if (lowerKey === "b" && running) {
       evento.preventDefault();
       batteryCodePendingUntil = Date.now() + 500;
       return;
@@ -2242,7 +2248,10 @@ async function exportExcelXlsx() {
     // También conserva compatibilidad con los firmwares anteriores.
     const enduroLap = enduroChord && evento.code === "KeyT";
     if (!enduroLap && key !== "F12" && key.toLowerCase() !== "t") return;
-    if (editing && !enduroLap) return;
+    // Fuera de carrera, una T simple puede seguir escribiendose normalmente.
+    // Durante la carrera, el boton siempre gana aunque Android conserve por
+    // error el foco dentro de un campo.
+    if (editing && !enduroLap && !running) return;
 
     evento.preventDefault();
     const piloto = getActiveRiders()[0];
