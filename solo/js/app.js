@@ -668,11 +668,7 @@ async function exportExcelXlsx() {
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
-    const centis = Math.floor((ms % 1000) / 10);
-    const secondsText = minutes > 0
-      ? String(seconds).padStart(2, "0")
-      : String(seconds);
-    return `${minutes > 0 ? `${minutes}:` : ""}${secondsText}.${String(centis).padStart(2, "0")}`;
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
   }
   function formatQuick(ms) {
     ms = Math.max(0, Math.floor(ms));
@@ -1691,6 +1687,10 @@ async function exportExcelXlsx() {
       if (r.sectorIdx >= sec) {
         let previousLaps = r.events.filter((x) => x.kind === "LAP");
         let lapNo = previousLaps.length + 1;
+        let mangaLapNo =
+          previousLaps.filter(
+            (x) => Number(x.mangaNo || 1) === currentMangaNo,
+          ).length + 1;
         let prev = previousLaps.length
           ? previousLaps[previousLaps.length - 1]
           : null;
@@ -1714,14 +1714,18 @@ async function exportExcelXlsx() {
           stampEpoch: tEpoch,
         });
         r.sectorIdx = 0;
-        label = `${isBest ? "⭐ " : ""}Vuelta ${lapNo}`;
+        label = `${isBest ? "⭐ " : ""}Vuelta ${mangaLapNo}`;
         timeMs = lapNet;
         displayMs = 15000;
-        showSoloRideResult(lapNo, lapNet, isBest);
+        showSoloRideResult(mangaLapNo, lapNet, isBest);
       }
     } else {
       let previousLaps = r.events.filter((x) => x.kind === "LAP");
       let lapNo = previousLaps.length + 1;
+      let mangaLapNo =
+        previousLaps.filter(
+          (x) => Number(x.mangaNo || 1) === currentMangaNo,
+        ).length + 1;
       let prev = previousLaps.length
         ? previousLaps[previousLaps.length - 1]
         : null;
@@ -1744,10 +1748,10 @@ async function exportExcelXlsx() {
         lapNetMs: lapNet,
         stampEpoch: tEpoch,
       });
-      label = `${isBest ? "⭐ " : ""}Vuelta ${lapNo}`;
+      label = `${isBest ? "⭐ " : ""}Vuelta ${mangaLapNo}`;
       timeMs = lapNet;
       displayMs = 15000;
-      showSoloRideResult(lapNo, lapNet, isBest);
+      showSoloRideResult(mangaLapNo, lapNet, isBest);
     }
 
     confirmMap[r.id] = { label, time: formatQuick(timeMs) };
