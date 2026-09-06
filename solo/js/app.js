@@ -631,8 +631,12 @@ async function exportExcelXlsx() {
     setSoloRideLock(true);
     soloRideLock.classList.remove("best", "normal");
     soloRideLock.classList.add("result", improved ? "best" : "normal");
-    soloRideLabel.textContent = improved ? "MEJOR VUELTA" : `VUELTA ${lapNo}`;
-    soloRideTime.textContent = format(lapMs);
+    if (improved) {
+      soloRideLabel.textContent = "MEJOR VUELTA";
+    } else {
+      soloRideLabel.innerHTML = `VUELTA <span class="soloRideLapNo">${Number(lapNo)}</span>`;
+    }
+    soloRideTime.textContent = formatSoloRide(lapMs);
     soloRideDetail.textContent = improved
       ? "¡Mejoraste tu tiempo!"
       : lapNo === 1 ? "Primera referencia" : "No mejoró la mejor vuelta";
@@ -658,6 +662,17 @@ async function exportExcelXlsx() {
       s = ts % 60,
       c = Math.floor((ms % 1000) / 10);
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(c).padStart(2, "0")}`;
+  }
+  function formatSoloRide(ms) {
+    ms = Math.max(0, Math.floor(ms));
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const centis = Math.floor((ms % 1000) / 10);
+    const secondsText = minutes > 0
+      ? String(seconds).padStart(2, "0")
+      : String(seconds);
+    return `${minutes > 0 ? `${minutes}:` : ""}${secondsText}.${String(centis).padStart(2, "0")}`;
   }
   function formatQuick(ms) {
     ms = Math.max(0, Math.floor(ms));
@@ -2122,23 +2137,26 @@ async function exportExcelXlsx() {
     clearTimeout(unlockTimer);
     unlockTimer = null;
     soloUnlock.classList.remove("holding");
+    soloRideLock.classList.remove("holding");
   };
   const beginUnlock = (evento) => {
     evento.preventDefault();
     if (unlockTimer) return;
     soloUnlock.classList.add("holding");
+    soloRideLock.classList.add("holding");
+    if (evento.pointerId !== undefined && soloRideLock.setPointerCapture) {
+      soloRideLock.setPointerCapture(evento.pointerId);
+    }
     unlockTimer = setTimeout(() => {
       cancelUnlock();
       pause();
       showToast("Pantalla desbloqueada");
     }, 3000);
   };
-  soloUnlock.addEventListener("touchstart", beginUnlock, { passive: false });
-  soloUnlock.addEventListener("touchend", cancelUnlock);
-  soloUnlock.addEventListener("touchcancel", cancelUnlock);
-  soloUnlock.addEventListener("mousedown", beginUnlock);
-  soloUnlock.addEventListener("mouseup", cancelUnlock);
-  soloUnlock.addEventListener("mouseleave", cancelUnlock);
+  soloRideLock.addEventListener("pointerdown", beginUnlock);
+  soloRideLock.addEventListener("pointerup", cancelUnlock);
+  soloRideLock.addEventListener("pointercancel", cancelUnlock);
+  soloRideLock.addEventListener("lostpointercapture", cancelUnlock);
   btnReset.onclick = resetTimeOnly;
   btnFinishSession.onclick = () => {
     if (confirm("¿Finalizar y guardar esta tanda?")) finishSession();

@@ -426,10 +426,17 @@
 .soloRideLock.best { background: #20bd55; }
 .soloRideLock.normal { background: #18a9d5; }
 .soloRideLabel { font-size: clamp(32px,8vw,72px); font-weight: 1000; }
-.soloRideTime { margin: 20px 0; font-size: clamp(82px,25vw,220px); font-weight: 1000; line-height: .95; font-variant-numeric: tabular-nums; letter-spacing: -.06em; }
+.soloRideLapNo { display: inline-block; font-size: 1.14em; line-height: .8; }
+.soloRideTime {
+  width: 100%; max-width: calc(100vw - 48px); margin: 20px auto;
+  white-space: nowrap; text-align: center;
+  font-size: clamp(76px,19vw,180px); font-weight: 1000; line-height: .95;
+  font-variant-numeric: tabular-nums; letter-spacing: -.045em;
+}
 .soloRideDetail { font-size: clamp(22px,5vw,46px); font-weight: 800; }
 .soloUnlock { position: absolute; right: 12px; bottom: max(12px,env(safe-area-inset-bottom)); border: 1px solid rgba(255,255,255,.35); background: rgba(0,0,0,.38); color: #fff; padding: 10px 14px; border-radius: 999px; font-size: 12px; opacity: .72; }
-.soloUnlock.holding { background: #ef4444; opacity: 1; }
+.soloUnlock.holding,
+.soloRideLock.holding .soloUnlock { background: #ef4444; opacity: 1; }
 
 /*
  * Solo botones (buttonsOnly) layout enhancements.
